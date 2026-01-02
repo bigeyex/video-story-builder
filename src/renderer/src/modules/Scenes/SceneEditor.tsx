@@ -51,30 +51,49 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
     };
 
     return (
-        <div style={{ padding: 24, height: '100%', overflowY: 'auto' }}>
+        <div style={{ padding: 24, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Form
                 form={form}
                 layout="vertical"
                 initialValues={scene}
                 onValuesChange={handleValuesChange}
+                style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
             >
-                <Form.Item name="title" label="Scene Title">
-                    <Input size="large" />
-                </Form.Item>
-                <Form.Item name="outline" label="Story Outline">
-                    <TextArea rows={6} placeholder="Describe the sequence of events..." />
-                </Form.Item>
-                <Form.Item name="conflict" label="Conflict / Tension">
-                    <TextArea rows={4} placeholder="What is the central conflict or tension?" />
-                </Form.Item>
-            </Form>
-            <div style={{ marginTop: 20 }}>
-                <Title level={5}>AI Assistance</Title>
-                <div style={{ display: 'flex', gap: 10 }}>
-                    <Button onClick={handleGenerateOutline}>Generate Outline</Button>
-                    <Button>Enhance Conflict</Button>
+                {/* Header: Title and Toolbar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                    <div style={{ flex: 1, marginRight: 24 }}>
+                        <Form.Item name="title" label="Scene Title" style={{ marginBottom: 0 }}>
+                            <Input size="large" style={{ fontWeight: 'bold' }} />
+                        </Form.Item>
+                    </div>
+                    <div style={{ paddingTop: 30 }}> {/* Align with Input box approx */}
+                        <Button type="primary" onClick={handleGenerateOutline} style={{ marginRight: 10 }}>
+                            Generate Outline
+                        </Button>
+                        <Button>Enhance Conflict</Button>
+                    </div>
                 </div>
-            </div>
+
+                {/* Content: Two Columns */}
+                <div style={{ display: 'flex', gap: 24, flex: 1, minHeight: 0 }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Form.Item name="outline" label="Story Outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+                            <TextArea
+                                style={{ flex: 1, resize: 'none' }}
+                                placeholder="Describe the sequence of events..."
+                            />
+                        </Form.Item>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Form.Item name="conflict" label="Conflict / Tension" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+                            <TextArea
+                                style={{ flex: 1, resize: 'none' }}
+                                placeholder="What is the central conflict or tension?"
+                            />
+                        </Form.Item>
+                    </div>
+                </div>
+            </Form>
         </div>
     );
 }

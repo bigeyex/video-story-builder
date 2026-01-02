@@ -6,16 +6,17 @@ import ReactFlow, {
     Background,
     useNodesState,
     useEdgesState,
-    addEdge,
     Connection,
     NodeChange,
     EdgeChange,
-    applyNodeChanges,
-    applyEdgeChanges
+    ConnectionMode,
+    MarkerType
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Character, Relationship } from '../../../../shared/types';
 import CharacterNode from './CharacterNode';
+import FloatingEdge from './FloatingEdge';
+import FloatingConnectionLine from './FloatingConnectionLine';
 
 interface InternalProps {
     characters: Character[];
@@ -26,88 +27,111 @@ interface InternalProps {
 }
 
 const nodeTypes = { character: CharacterNode };
+const edgeTypes = { floating: FloatingEdge };
 
 export default function CharacterGraph({ characters, relationships, onUpdate, onSelect, selectedId }: InternalProps) {
-    // Map props to nodes/edges
-    // Note: We use local state for immediate interaction, and sync back on changes.
-    // However, lifting state up is better if we want full control.
-    // For simplicity, we'll derive initial, and report changes.
 
-    const initialNodes = useMemo(() => characters.map(c => ({
-        id: c.id,
-        type: 'character',
-        position: c.position || { x: 0, y: 0 },
-        data: { label: c.name, avatar: c.avatar, selected: c.id === selectedId }
-    })), []); // Only initial? If props change, we might need to update.
+    // Helper to check bidirectionality
+    const getBidirectionalMap = (rels: Relationship[]) => {
+        const map = new Set<string>();
+        rels.forEach(r => map.add(`${r.source}|${r.target}`));
+        return map;
+    };
 
-    const initialEdges = useMemo(() => relationships.map(r => ({
-        id: r.id,
-        source: r.source,
-        target: r.target,
-        label: r.label,
-        type: 'smoothstep'
-    })), []);
+    const isBidirectional = (r: Relationship, map: Set<string>) => {
+        return map.has(`${r.target}|${r.source}`);
+    };
 
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    // Helper for updating edge label
+    const onEdgeLabelChange = useCallback((edgeId: string, newLabel: string) => {
+        const newRels = relationships.map(r => r.id === edgeId ? { ...r, label: newLabel } : r);
+        onUpdate(characters, newRels);
+    }, [relationships, characters, onUpdate]);
 
-    // Sync props to state (unidirectional or bidirectional?)
-    // If parent updates chars (e.g. edit name), we want to reflect it.
+    const [nodes, setNodes, onNodesChange] = useNodesState([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+    // Sync Nodes
     useEffect(() => {
-        setNodes(nds => nds.map(n => {
-            const c = characters.find(ch => ch.id === n.id);
-            if (c) {
-                return { ...n, data: { ...n.data, label: c.name, avatar: c.avatar, selected: c.id === selectedId } };
-            }
-            return n;
-        }));
-        // Check for new nodes?
-        const existingIds = new Set(nodes.map(n => n.id));
-        const newNodes = characters.filter(c => !existingIds.has(c.id)).map(c => ({
-            id: c.id,
-            type: 'character',
-            position: c.position || { x: 0, y: 0 },
-            data: { label: c.name, avatar: c.avatar, selected: c.id === selectedId }
-        }));
-        if (newNodes.length > 0) {
-            setNodes(nds => [...nds, ...newNodes]);
-        }
-    }, [characters, selectedId, setNodes]); // Avoid deep dependency issue
+        setNodes(nds => {
+            // ... existing node sync logic ...
+            // We need to re-implement it fully since we are replacing the block
+            // But to save tokens I will try to be concise if possible, but replace_file_content replaces the chunk.
+            // I'll reuse the logic from previous step but update it relative to 'nodes' dependency.
+            // Actually, simplest is to reconstruction the node list from characters and merge with local state handling? 
+            // Just copy the logic from previous step.
 
-    // Sync edges
+            const currentIds = new Set(nds.map(n => n.id));
+
+            // Update existing
+            const updated = nds.map(n => {
+                const c = characters.find(ch => ch.id === n.id);
+                if (c) {
+                    return {
+                        ...n,
+                        dragHandle: '.node-drag-target',
+                        data: { ...n.data, label: c.name, avatar: c.avatar, selected: c.id === selectedId }
+                    };
+                }
+                return n;
+            });
+
+            // Add new
+            const newNodes = characters.filter(c => !currentIds.has(c.id)).map(c => ({
+                id: c.id,
+                type: 'character',
+                position: c.position || { x: 0, y: 0 },
+                dragHandle: '.node-drag-target',
+                data: { label: c.name, avatar: c.avatar, selected: c.id === selectedId }
+            }));
+
+            // Remove deleted? (Previous logic didn't explicitly remove, but newNodes handles adding)
+            // If characters are removed, they won't be in updated? No, map iterates over nds.
+            // We should filter out nds not in characters.
+            const validIds = new Set(characters.map(c => c.id));
+            const filtered = updated.filter(n => validIds.has(n.id));
+
+            return [...filtered, ...newNodes];
+        });
+    }, [characters, selectedId, setNodes]);
+
+    // Sync Edges
     useEffect(() => {
-        // similar logic for edges if needed
+        const map = getBidirectionalMap(relationships);
         setEdges(eds => {
-            // Simplified sync
             const mapped = relationships.map(r => ({
                 id: r.id,
                 source: r.source,
                 target: r.target,
                 label: r.label,
-                type: 'smoothstep'
+                type: 'floating',
+                markerEnd: { type: MarkerType.ArrowClosed },
+                data: {
+                    onLabelChange: onEdgeLabelChange,
+                    isBidirectional: isBidirectional(r, map)
+                }
             }));
-            // Merge with existing selection state or other props if any?
-            // For now just replace if different count? 
-            // Edge editing (dragging) relies on local state.
-            // We should generally trust local state for dragging, and props for structure.
             return mapped;
         });
-    }, [relationships, setEdges]);
+    }, [relationships, setEdges, onEdgeLabelChange]);
 
-    // Handle movements
+    // ... Handlers ...
+
+    const onEdgesDelete = useCallback((edgesToDelete: Edge[]) => {
+        const idsToDelete = new Set(edgesToDelete.map(e => e.id));
+        const newRels = relationships.filter(r => !idsToDelete.has(r.id));
+        onUpdate(characters, newRels);
+    }, [relationships, characters, onUpdate]);
+
     const handleNodesChange = useCallback((changes: NodeChange[]) => {
         onNodesChange(changes);
-        // Determine if we need to upstream changes (e.g. position)
-        // We should debounce this or only do it on drag end.
-        // Changes includes 'position', 'select', etc.
-        // For simplicity, we could upstream everything but that might cause loops.
-        // Let's upstream "position" changes only when drag ends? 
-        // reactflow doesn't have easy "onDragEnd" for batch. 
-        // We can use onNodeDragStop.
     }, [onNodesChange]);
 
+    const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+        onEdgesChange(changes);
+    }, [onEdgesChange]);
+
     const onNodeDragStop = useCallback((event, node) => {
-        // Upstream position update
         const updatedChars = characters.map(c => {
             if (c.id === node.id) return { ...c, position: node.position };
             return c;
@@ -116,13 +140,18 @@ export default function CharacterGraph({ characters, relationships, onUpdate, on
     }, [characters, relationships, onUpdate]);
 
     const onConnect = useCallback((params: Connection) => {
-        // Add new relationship
         if (!params.source || !params.target) return;
+        if (params.source === params.target) return; // Prevent self-loops if desired?
+
+        // Check for existing
+        const exists = relationships.some(r => r.source === params.source && r.target === params.target);
+        if (exists) return;
+
         const newRel: Relationship = {
             id: `rel-${Date.now()}`,
             source: params.source,
             target: params.target,
-            label: 'relates to'
+            label: 'New Relation'
         };
         onUpdate(characters, [...relationships, newRel]);
     }, [characters, relationships, onUpdate]);
@@ -141,12 +170,16 @@ export default function CharacterGraph({ characters, relationships, onUpdate, on
                 nodes={nodes}
                 edges={edges}
                 onNodesChange={handleNodesChange}
-                onEdgesChange={onEdgesChange}
+                onEdgesChange={handleEdgesChange}
+                onEdgesDelete={onEdgesDelete}
                 onConnect={onConnect}
                 onNodeClick={onNodeClick}
                 onPaneClick={onPaneClick}
                 onNodeDragStop={onNodeDragStop}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                connectionLineComponent={FloatingConnectionLine}
+                connectionMode={ConnectionMode.Loose}
                 fitView
             >
                 <Background />

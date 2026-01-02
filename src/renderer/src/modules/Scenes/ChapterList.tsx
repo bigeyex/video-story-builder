@@ -10,6 +10,7 @@ interface InternalProps {
     onSelectChapter: (id: string) => void;
     onSelectScene: (chapterId: string, sceneId: string) => void;
     onUpdateChapters: (chapters: Chapter[]) => void;
+    onDeleteScene: (chapterId: string, sceneId: string) => void;
 }
 
 export default function ChapterList({
@@ -18,7 +19,8 @@ export default function ChapterList({
     selectedSceneId,
     onSelectChapter,
     onSelectScene,
-    onUpdateChapters
+    onUpdateChapters,
+    onDeleteScene
 }: InternalProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
@@ -43,6 +45,15 @@ export default function ChapterList({
                 onUpdateChapters(updated);
                 if (selectedChapterId === id) onSelectChapter('');
             }
+        });
+    };
+
+    const handleDeleteScene = (chapterId: string, sceneId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        Modal.confirm({
+            title: 'Delete Scene?',
+            content: 'Are you sure you want to delete this scene?',
+            onOk: () => onDeleteScene(chapterId, sceneId)
         });
     };
 
@@ -156,9 +167,10 @@ export default function ChapterList({
                                     ) : (
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <span>{scene.title}</span>
-                                            {selectedSceneId === scene.id && (
-                                                <EditOutlined onClick={(e) => startEdit(scene.id, scene.title, e)} />
-                                            )}
+                                            <div style={{ display: 'flex' }}>
+                                                <Button type="text" size="small" icon={<EditOutlined style={{ color: '#aaa' }} />} onClick={(e) => startEdit(scene.id, scene.title, e)} />
+                                                <Button type="text" size="small" icon={<DeleteOutlined style={{ color: '#ff4d4f' }} />} onClick={(e) => handleDeleteScene(chapter.id, scene.id, e)} />
+                                            </div>
                                         </div>
                                     )}
                                 </div>

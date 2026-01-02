@@ -67,7 +67,17 @@ export default function ScenesPage() {
         setSelectedSceneId(sceneId);
     };
 
-    const [activeTab, setActiveTab] = useState<'outline' | 'storyboard'>('outline');
+    const handleDeleteScene = (chapId: string, sceneId: string) => {
+        if (!project) return;
+        const newChapters = project.chapters.map(c => {
+            if (c.id === chapId) {
+                return { ...c, scenes: c.scenes.filter(s => s.id !== sceneId) };
+            }
+            return c;
+        });
+        updateChapters(newChapters);
+        if (selectedSceneId === sceneId) setSelectedSceneId(null);
+    };
 
     if (!project) return <div>Loading...</div>;
 
@@ -84,24 +94,27 @@ export default function ScenesPage() {
                     onSelectChapter={setSelectedChapterId}
                     onSelectScene={handleSelectScene}
                     onUpdateChapters={updateChapters}
+                    onDeleteScene={handleDeleteScene}
                 />
             </Sider>
-            <Content style={{ display: 'flex', flexDirection: 'column' }}>
-                {activeScene && (
-                    <div style={{ padding: '8px 16px', borderBottom: '1px solid #333', background: '#1c1c1c' }}>
-                        <Radio.Group value={activeTab} onChange={e => setActiveTab(e.target.value as 'outline' | 'storyboard')} buttonStyle="solid">
-                            <Radio.Button value="outline">Outline & Conflict</Radio.Button>
-                            <Radio.Button value="storyboard">Storyboard</Radio.Button>
-                        </Radio.Group>
+            <Content style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                {activeScene ? (
+                    <>
+                        {/* Top Section: Scene Details (Outline & Conflict) */}
+                        <div style={{ height: '50%', borderBottom: '1px solid #333', overflowY: 'auto' }}>
+                            <SceneEditor scene={activeScene} onUpdate={handleUpdateScene} />
+                        </div>
+
+                        {/* Bottom Section: Storyboard */}
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <StoryboardEditor scene={activeScene} onUpdate={handleUpdateScene} />
+                        </div>
+                    </>
+                ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>
+                        Select or create a scene to start editing.
                     </div>
                 )}
-                <div style={{ flex: 1, overflow: 'auto' }}>
-                    {activeTab === 'outline' ? (
-                        <SceneEditor scene={activeScene} onUpdate={handleUpdateScene} />
-                    ) : (
-                        <StoryboardEditor scene={activeScene} onUpdate={handleUpdateScene} />
-                    )}
-                </div>
             </Content>
         </Layout>
     );

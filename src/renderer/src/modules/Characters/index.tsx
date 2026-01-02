@@ -7,7 +7,6 @@ import CharacterGraph from './CharacterGraph';
 import CharacterDetails from './CharacterDetails';
 import CharacterGeneratorModal from './CharacterGeneratorModal';
 import { PlusOutlined, RobotOutlined } from '@ant-design/icons';
-import debounce from 'lodash.debounce'; // Optional: used custom or lodash if avail. Assuming simple debounce logic here or I'll implement it inline.
 
 const { Content, Sider } = Layout;
 
