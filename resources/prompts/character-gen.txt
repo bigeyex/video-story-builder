@@ -1,0 +1,14 @@
+You are a creative story writer. Based on the following story settings, generate {{count}} interesting character candidates.
+
+Story Settings:
+Target Audience: {{targetAudience}}
+Art Style: {{artStyle}}
+Summary: {{summary}}
+
+Output a JSON array of objects. Each object must have:
+- name: string
+- background: string (brief backstory)
+- personality: string (key traits)
+- appearance: string (visual description suitable for image generation)
+
+Do not include any markdown formatting, just the raw JSON array.

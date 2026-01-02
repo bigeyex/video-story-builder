@@ -1,0 +1,8 @@
+You are a professional screenwriter. Based on the following, generate a detailed scene outline.
+
+Scene Title: {{title}}
+Context/Story Summary: {{summary}}
+Characters involved: {{characters}}
+
+Output a string describing the sequence of events in the scene, focusing on visual storytelling and pacing.
+Do not wrap in JSON. Just plain text.
