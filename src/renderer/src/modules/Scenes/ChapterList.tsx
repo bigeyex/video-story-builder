@@ -66,7 +66,8 @@ export default function ChapterList({
             id: `scene-${Date.now()}`,
             title: 'New Scene',
             outline: '',
-            conflict: ''
+            conflict: '',
+            storyboard: []
         };
 
         const updatedChapters = [...chapters];

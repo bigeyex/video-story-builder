@@ -22,11 +22,22 @@ export interface Relationship {
   label: string;
 }
 
+export interface StoryboardShot {
+  id: string;
+  image?: string;
+  description: string;
+  dialogue: string;
+  duration: number;
+  camera: string;
+  sound: string;
+}
+
 export interface Scene {
   id: string;
   title: string;
   outline: string;
   conflict: string;
+  storyboard: StoryboardShot[];
 }
 
 export interface Chapter {

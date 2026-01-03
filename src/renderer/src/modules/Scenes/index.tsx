@@ -101,7 +101,7 @@ export default function ScenesPage() {
                 {activeScene ? (
                     <>
                         {/* Top Section: Scene Details (Outline & Conflict) */}
-                        <div style={{ height: '50%', borderBottom: '1px solid #333', overflowY: 'auto' }}>
+                        <div style={{ flexShrink: 0, borderBottom: '1px solid #333', overflowY: 'auto', maxHeight: '50%' }}>
                             <SceneEditor scene={activeScene} onUpdate={handleUpdateScene} />
                         </div>
 

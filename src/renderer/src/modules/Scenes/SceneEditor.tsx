@@ -1,8 +1,7 @@
-import { Input, Typography, Form, Button, message } from 'antd';
+import { Input, Form, Button, message } from 'antd';
 import { Scene } from '../../../../shared/types';
 import { useEffect } from 'react';
 
-const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 interface InternalProps {
@@ -51,44 +50,52 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
     };
 
     return (
-        <div style={{ padding: 24, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column' }}>
             <Form
                 form={form}
                 layout="vertical"
                 initialValues={scene}
                 onValuesChange={handleValuesChange}
-                style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+                style={{ display: 'flex', flexDirection: 'column' }}
             >
                 {/* Header: Title and Toolbar */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div style={{ flex: 1, marginRight: 24 }}>
-                        <Form.Item name="title" label="Scene Title" style={{ marginBottom: 0 }}>
-                            <Input size="large" style={{ fontWeight: 'bold' }} />
+                        <Form.Item name="title" style={{ marginBottom: 0 }}>
+                            <Input
+                                placeholder="Scene Title"
+                                bordered={false}
+                                style={{ fontSize: '20px', fontWeight: 'bold', padding: 0 }}
+                            />
                         </Form.Item>
                     </div>
-                    <div style={{ paddingTop: 30 }}> {/* Align with Input box approx */}
-                        <Button type="primary" onClick={handleGenerateOutline} style={{ marginRight: 10 }}>
+                    <div>
+                        <Button type="primary" onClick={handleGenerateOutline} size="small" style={{ marginRight: 10 }}>
                             Generate Outline
                         </Button>
-                        <Button>Enhance Conflict</Button>
+                        <Button size="small">Enhance Conflict</Button>
                     </div>
                 </div>
 
                 {/* Content: Two Columns */}
-                <div style={{ display: 'flex', gap: 24, flex: 1, minHeight: 0 }}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <Form.Item name="outline" label="Story Outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+                <div style={{ display: 'flex', gap: 24 }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>STORY OUTLINE</div>
+                        <Form.Item name="outline" style={{ marginBottom: 0 }}>
                             <TextArea
-                                style={{ flex: 1, resize: 'none' }}
+                                autoSize={{ minRows: 4, maxRows: 12 }}
                                 placeholder="Describe the sequence of events..."
+                                style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />
                         </Form.Item>
                     </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <Form.Item name="conflict" label="Conflict / Tension" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>CONFLICT / TENSION</div>
+                        <Form.Item name="conflict" style={{ marginBottom: 0 }}>
                             <TextArea
-                                style={{ flex: 1, resize: 'none' }}
+                                autoSize={{ minRows: 4, maxRows: 12 }}
                                 placeholder="What is the central conflict or tension?"
+                                style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />
                         </Form.Item>
                     </div>
