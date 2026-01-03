@@ -23,10 +23,19 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
     const loadSettings = async () => {
         try {
             const s = await SettingsService.getSettings();
-            form.setFieldsValue(s);
+            // Provide defaults for new fields if missing
+            const defaults: GlobalSettings = {
+                provider: s.provider || 'VolcEngine',
+                volcEngineApiKey: s.volcEngineApiKey || '',
+                textModelId: s.textModelId || 'doubao-seed-1-6-251015',
+                imageModelId: s.imageModelId || 'doubao-seedream-4-5-251128',
+                videoModelId: s.videoModelId || 'doubao-seedance-1-5-pro-251215',
+                language: s.language || i18n.language
+            };
+            form.setFieldsValue(defaults);
             // Sync i18n with loaded settings if present
-            if (s.language && s.language !== i18n.language) {
-                i18n.changeLanguage(s.language);
+            if (defaults.language && defaults.language !== i18n.language) {
+                i18n.changeLanguage(defaults.language);
             }
         } catch {
             message.error(t('common.error', 'Failed to load settings'));
@@ -73,6 +82,17 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
                     />
                 </Form.Item>
                 <Form.Item
+                    name="provider"
+                    label={t('settings.provider')}
+                    rules={[{ required: true }]}
+                >
+                    <Select
+                        options={[
+                            { label: 'VolcEngine / 火山引擎', value: 'VolcEngine' }
+                        ]}
+                    />
+                </Form.Item>
+                <Form.Item
                     name="volcEngineApiKey"
                     label={t('settings.apiKey')}
                     rules={[{ required: true, message: t('settings.apiKeyRequired') }]}
@@ -80,11 +100,25 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
                     <Input.Password placeholder={t('settings.apiKeyPlaceholder')} />
                 </Form.Item>
                 <Form.Item
-                    name="volcEngineModel"
-                    label={t('settings.modelId')}
-                    rules={[{ required: true, message: t('settings.modelIdRequired') }]}
+                    name="textModelId"
+                    label={t('settings.textModelId')}
+                    rules={[{ required: true }]}
                 >
-                    <Input placeholder={t('settings.modelIdPlaceholder')} />
+                    <Input placeholder="doubao-seed-1-6-251015" />
+                </Form.Item>
+                <Form.Item
+                    name="imageModelId"
+                    label={t('settings.imageModelId')}
+                    rules={[{ required: true }]}
+                >
+                    <Input placeholder="doubao-seedream-4-5-251128" />
+                </Form.Item>
+                <Form.Item
+                    name="videoModelId"
+                    label={t('settings.videoModelId')}
+                    rules={[{ required: true }]}
+                >
+                    <Input placeholder="doubao-seedance-1-5-pro-251215" />
                 </Form.Item>
             </Form>
         </Modal>

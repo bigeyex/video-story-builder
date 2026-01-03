@@ -70,17 +70,14 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
   // 1. Get Settings
   const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
   const settings = JSON.parse(settingsStr)
-  if (!settings.volcEngineApiKey || !settings.volcEngineModel) {
-    throw new Error('API Key or Model not configured')
+  const textModelId = settings.textModelId || settings.volcEngineModel || 'doubao-seed-1-6-251015'
+  
+  if (!settings.volcEngineApiKey) {
+    throw new Error('API Key not configured')
   }
 
   // 2. Read Prompt Template
-  // resources path depends on dev vs prod. 
-  // In dev: ../../resources/prompts
-  // In prod: process.resourcesPath/prompts usually? 
-  // Using electron-toolkit/utils or similar is better.
-  // For now assuming dev structure relative to main or using resources folder passed to builder.
-  // app.isPackaged check needed.
+  // ... (lines 76-89)
   
   let promptPath = ''
   if (app.isPackaged) {
@@ -112,7 +109,7 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
 
   const completion = await client.chat.completions.create({
     messages: [{ role: 'user', content: prompt }],
-    model: settings.volcEngineModel,
+    model: textModelId,
   })
 
   let content = completion.choices[0]?.message?.content || ''
@@ -129,6 +126,8 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
 ipcMain.handle('generate-image', async (_, prompt: string) => {
   const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
   const settings = JSON.parse(settingsStr)
+  const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+
   if (!settings.volcEngineApiKey) {
     throw new Error('API Key not configured')
   }
@@ -138,20 +137,8 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
     baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
   })
 
-  // Note: VolcEngine might use different endpoint or model for images.
-  // Assuming OpenAI compatible or using a specific model if known.
-  // If OpenAI SDK 'images.generate' fails on VolcEngine, we might need custom fetch.
-  // For now, attempting standard OpenAI call.
   const response = await client.images.generate({
-    model: 'cv-2024...', // Placeholder, user might need to set this separate?
-    // Actually, VolcEngine Image Gen usually requires specific model ep.
-    // Let's rely on user config or default?
-    // If settings has only one model field, it might be for Chat.
-    // I'll use the same model field or maybe 'dall-e-3' as placeholder if VolcEngine maps it?
-    // Unlikely. I'll just try with settings.volcEngineModel if user puts an image model payload there?
-    // Or just pass prompt and let user configure model in code?
-    // Better: Add "Image Model" to settings?
-    // For now, I'll assume the single model key is sufficient or I'll try to use a default.
+    model: imageModelId,
     prompt: prompt,
     n: 1,
     size: '1024x1024'

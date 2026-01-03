@@ -1,16 +1,17 @@
 import { Input, Form, Button, message } from 'antd';
-import { Scene } from '../../../../shared/types';
+import { Scene, Project } from '../../../../shared/types';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const { TextArea } = Input;
 
 interface InternalProps {
+    project: Project;
     scene: Scene | null;
     onUpdate: (updates: Partial<Scene>) => void;
 }
 
-export default function SceneEditor({ scene, onUpdate }: InternalProps) {
+export default function SceneEditor({ project, scene, onUpdate }: InternalProps) {
     const { t } = useTranslation();
     const [form] = Form.useForm();
 
@@ -40,15 +41,28 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
                 return;
             }
             message.loading({ content: t('scenes.generating'), key: 'gen' });
+
+            const charactersStr = project.characters.map(c => `${c.name}: ${c.personality}`).join('\n');
             const result = await window.api.generateAI('scene-outline', {
                 title: scene?.title || '',
-                summary: 'Context from project settings...',
-                characters: 'Main characters'
+                targetAudience: project.wordSettings.targetAudience,
+                artStyle: project.wordSettings.artStyle,
+                summary: project.wordSettings.summary,
+                characters: charactersStr
             });
-            onUpdate({ outline: result.outline || result });
+
+            if (result && typeof result === 'object') {
+                onUpdate({
+                    outline: result.outline || '',
+                    conflict: result.conflict || ''
+                });
+            } else {
+                onUpdate({ outline: result });
+            }
+
             message.success({ content: t('scenes.generated'), key: 'gen' });
-        } catch (e) {
-            message.error({ content: t('characters.failed') + e, key: 'gen' });
+        } catch (e: any) {
+            message.error({ content: t('characters.failed') + (e.message || e), key: 'gen' });
         }
     };
 
@@ -73,10 +87,9 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
                         </Form.Item>
                     </div>
                     <div>
-                        <Button type="primary" onClick={handleGenerateOutline} size="small" style={{ marginRight: 10 }}>
+                        <Button type="primary" onClick={handleGenerateOutline} size="small">
                             {t('scenes.generateOutline')}
                         </Button>
-                        <Button size="small">{t('scenes.enhanceConflict')}</Button>
                     </div>
                 </div>
 

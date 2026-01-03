@@ -1,8 +1,16 @@
-You are a professional screenwriter. Based on the following, generate a detailed scene outline.
+You are a professional screenwriter. Based on the following story settings and scene title, generate a detailed scene outline and identify the core conflict.
 
-Scene Title: {{title}}
-Context/Story Summary: {{summary}}
+Story Settings:
+Target Audience: {{targetAudience}}
+Art Style: {{artStyle}}
+Summary: {{summary}}
+
 Characters involved: {{characters}}
 
-Output a string describing the sequence of events in the scene, focusing on visual storytelling and pacing.
-Do not wrap in JSON. Just plain text.
+Scene Title: {{title}}
+
+Output a JSON object with two fields:
+- outline: a string describing the sequence of events, focusing on visual storytelling and pacing.
+- conflict: a string describing the core conflict or tension in this scene.
+
+Do not include any markdown formatting, just the raw JSON object.

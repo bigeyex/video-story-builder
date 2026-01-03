@@ -47,8 +47,12 @@ export interface Chapter {
 }
 
 export interface GlobalSettings {
+  provider: string;
   volcEngineApiKey: string;
-  volcEngineModel: string;
+  volcEngineModel?: string; // Legacy
+  textModelId: string;
+  imageModelId: string;
+  videoModelId: string;
   language?: string;
 }
 

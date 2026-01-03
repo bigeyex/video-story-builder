@@ -197,7 +197,7 @@ export default function ScenesPage() {
                     <>
                         {/* Top Section: Scene Details */}
                         <div style={{ flexShrink: 0, borderBottom: '1px solid #333', overflowY: 'auto', maxHeight: '50%' }}>
-                            <SceneEditor scene={activeScene} onUpdate={handleUpdateScene} />
+                            <SceneEditor project={project} scene={activeScene} onUpdate={handleUpdateScene} />
                         </div>
 
                         {/* Bottom Section: Storyboard */}
