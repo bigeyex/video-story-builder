@@ -1,18 +1,18 @@
-import { Form, Input, Card, Upload, Button, Avatar, Typography, message } from 'antd';
+import { Form, Input, Button, Avatar, message } from 'antd';
 import { UploadOutlined, UserOutlined } from '@ant-design/icons';
-import { Character } from '../../../../shared/types';
+import { Character, Project } from '../../../../shared/types';
 import { useEffect } from 'react';
 
 const { TextArea } = Input;
-const { Title } = Typography;
 
 interface InternalProps {
+    project: Project;
     character: Character | null;
     onUpdate: (id: string, updates: Partial<Character>) => void;
     onDelete: (id: string) => void;
 }
 
-export default function CharacterDetails({ character, onUpdate, onDelete }: InternalProps) {
+export default function CharacterDetails({ project, character, onUpdate, onDelete }: InternalProps) {
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -31,14 +31,14 @@ export default function CharacterDetails({ character, onUpdate, onDelete }: Inte
         );
     }
 
-    const handleValuesChange = (changedValues: any, allValues: any) => {
+    const handleValuesChange = (changedValues: any) => {
         onUpdate(character.id, changedValues);
     };
 
     const handleGenerateAvatar = async () => {
         try {
             message.loading({ content: 'Generating Avatar...', key: 'avatar' });
-            const prompt = `Character avatar for ${character.name}: ${character.appearance}, ${character.personality}. Art Style: Cinematic.`;
+            const prompt = `Character avatar for ${character.name}: ${character.appearance}, ${character.personality}. Art Style: ${project.wordSettings.artStyle || 'Cinematic'}.`;
             const url = await window.api.generateImage(prompt);
             onUpdate(character.id, { avatar: url });
             message.success({ content: 'Avatar Generated!', key: 'avatar' });

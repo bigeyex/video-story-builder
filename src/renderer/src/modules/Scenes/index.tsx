@@ -1,4 +1,4 @@
-import { Layout, message, Button, Tooltip } from 'antd';
+import { Layout, message } from 'antd';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
@@ -99,13 +99,6 @@ export default function ScenesPage() {
 
     const resize = useCallback((mouseMoveEvent: MouseEvent) => {
         if (isResizing && sidebarRef.current) {
-            const newWidth = mouseMoveEvent.clientX - sidebarRef.current.getBoundingClientRect().left;
-            // Since sidebar is roughly at the left, clientX is approx width (minus main sidebar). 
-            // Better: use movementX or calculate delta. 
-            // Simplest for fixed left layout: 
-            // We need to account for the Main App Sidebar (200px collapsed to 60px).
-            // Let's rely on standard logic: Current Width + Delta
-            // But clientX is absolute.
             // Let's assume standard layout.
             // Actually, simplified: just use mouseMoveEvent.clientX - 60 (approx main sidebar width if collapsed).
             // To be robust, let's just track delta from start. But we didn't store start X.
@@ -208,7 +201,7 @@ export default function ScenesPage() {
 
                         {/* Bottom Section: Storyboard */}
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <StoryboardEditor scene={activeScene} onUpdate={handleUpdateScene} />
+                            <StoryboardEditor project={project} scene={activeScene} onUpdate={handleUpdateScene} />
                         </div>
                     </>
                 ) : (

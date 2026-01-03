@@ -1,5 +1,5 @@
 import { Layout, Button, message } from 'antd';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { ProjectService } from '../../services/ProjectService';
 import { Project, Character, Relationship } from '../../../../shared/types';
@@ -109,6 +109,7 @@ export default function CharactersPage() {
                     <Button icon={<RobotOutlined />} onClick={() => setGenModalOpen(true)}>AI Generate</Button>
                 </div>
                 <CharacterDetails
+                    project={project}
                     character={selectedChar}
                     onUpdate={handleUpdateCharacter}
                     onDelete={handleDeleteCharacter}

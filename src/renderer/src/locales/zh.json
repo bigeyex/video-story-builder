@@ -69,11 +69,18 @@
     "cut": "剪切",
     "copy": "复制",
     "pasteUp": "向上粘贴",
-    "pasteDown": "向下粘贴",
+    "pasteDown": "粘贴到下方",
     "insertUp": "向上插入",
     "insertDown": "向下插入",
     "moveUp": "上移",
     "moveDown": "下移",
-    "delete": "删除"
+    "delete": "删除镜头",
+    "generatingShots": "正在生成镜头...",
+    "generated": "分镜已生成！",
+    "aiNoShots": "AI 未返回任何镜头。",
+    "generatingDescription": "正在生成描述...",
+    "descriptionGenerated": "描述已生成！",
+    "generatingImage": "正在生成图片...",
+    "imageGenerated": "图片已生成！"
   }
 }

@@ -74,6 +74,13 @@
     "insertDown": "Insert Down",
     "moveUp": "Move Up",
     "moveDown": "Move Down",
-    "delete": "Delete"
+    "delete": "Delete Shot",
+    "generatingShots": "Generating shots...",
+    "generated": "Storyboard generated!",
+    "aiNoShots": "AI returned no shots.",
+    "generatingDescription": "Generating description...",
+    "descriptionGenerated": "Description generated!",
+    "generatingImage": "Generating image...",
+    "imageGenerated": "Image generated!"
   }
 }

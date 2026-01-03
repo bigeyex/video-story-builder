@@ -1,11 +1,11 @@
-import { Typography, Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip } from 'antd';
+import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip } from 'antd';
 import {
     PlusOutlined, VideoCameraOutlined, MoreOutlined, RobotOutlined,
     ScissorOutlined, CopyOutlined, SnippetsOutlined,
     ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined,
     UploadOutlined
 } from '@ant-design/icons';
-import { Scene, StoryboardShot } from '../../../../shared/types';
+import { Scene, StoryboardShot, Project } from '../../../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,11 +13,12 @@ import { useTranslation } from 'react-i18next';
 const { TextArea } = Input;
 
 interface InternalProps {
+    project: Project;
     scene: Scene | null;
     onUpdate: (updates: Partial<Scene>) => void;
 }
 
-export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
+export default function StoryboardEditor({ project, scene, onUpdate }: InternalProps) {
     const { t } = useTranslation();
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -97,6 +98,45 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
         message.success(`${t('storyboard.pasteUp')} ${toPaste.length}`);
     };
 
+    const handlePerShotAI = async (shot: StoryboardShot) => {
+        try {
+            const settings = await window.api.getSettings();
+            if (!settings.volcEngineApiKey) {
+                message.error(t('common.error', 'No API Key'));
+                return;
+            }
+
+            // If description is empty, try to generate it first?
+            // For now, let's assume it generates/regenerates the IMAGE if description exists.
+            if (!shot.description.trim()) {
+                message.loading({ content: t('storyboard.generatingDescription'), key: 'shot-ai' });
+                const result = await window.api.generateAI('shot-description', {
+                    sceneTitle: scene.title,
+                    sceneOutline: scene.outline,
+                    shotIndex: shots.findIndex(s => s.id === shot.id) + 1,
+                    previousShot: shots[shots.findIndex(s => s.id === shot.id) - 1]?.description || 'None'
+                });
+                if (result && result.description) {
+                    handleFieldChange(shot.id, 'description', result.description);
+                    if (result.dialogue) handleFieldChange(shot.id, 'dialogue', result.dialogue);
+                    message.success({ content: t('storyboard.descriptionGenerated'), key: 'shot-ai' });
+                } else {
+                    message.error({ content: t('common.failed'), key: 'shot-ai' });
+                }
+                return;
+            }
+
+            // Generate Image
+            message.loading({ content: t('storyboard.generatingImage'), key: 'shot-ai' });
+            const prompt = `Art Style: ${project.wordSettings.artStyle}. Scene: ${scene.title}. Shot Description: ${shot.description}. Camera: ${shot.camera}.`;
+            const url = await window.api.generateImage(prompt);
+            handleFieldChange(shot.id, 'image', url);
+            message.success({ content: t('storyboard.imageGenerated'), key: 'shot-ai' });
+        } catch (e) {
+            message.error({ content: t('common.failed') + ': ' + e, key: 'shot-ai' });
+        }
+    };
+
     const handleFieldChange = (id: string, field: keyof StoryboardShot, value: any) => {
         updateShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
     };
@@ -111,6 +151,8 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                 title: scene.title,
                 outline: scene.outline,
                 conflict: scene.conflict,
+                artStyle: project.wordSettings.artStyle,
+                characters: project.characters.map(c => `${c.name}: ${c.appearance}`).join('\n')
             });
 
             if (Array.isArray(result) && result.length > 0) {
@@ -232,7 +274,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                             <div style={{ width: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, borderRight: '1px solid #333', marginRight: 12, paddingTop: 4 }}>
                                 <span style={{ color: '#666', fontWeight: 'bold' }}>#{index + 1}</span>
                                 <Tooltip title={t('scenes.aiAssistance', 'AI Assistance')}>
-                                    <Button type="text" size="small" icon={<RobotOutlined style={{ color: '#1677ff' }} />} />
+                                    <Button type="text" size="small" icon={<RobotOutlined style={{ color: '#1677ff' }} />} onClick={() => handlePerShotAI(shot)} />
                                 </Tooltip>
                                 <Dropdown menu={getMenu(index, shot)} trigger={['click']}>
                                     <Button type="text" size="small" icon={<MoreOutlined style={{ color: '#fff', fontSize: 16 }} />} />

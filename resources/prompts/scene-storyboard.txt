@@ -1,0 +1,16 @@
+You are a cinematographer and storyboard artist. Based on the scene details, break it down into a sequence of shots.
+
+Scene: {{title}}
+Outline: {{outline}}
+Conflict: {{conflict}}
+Characters: {{characters}}
+Art Style: {{artStyle}}
+
+Output a JSON array of objects, where each object has:
+- description: string (Detailed visual description for image generation)
+- dialogue: string (Optional dialogue)
+- duration: number (seconds)
+- camera: string (e.g. Extreme Close Up, Low Angle)
+- sound: string (Optional sound effects or music cues)
+
+Do not include markdown blocks, just raw JSON.
