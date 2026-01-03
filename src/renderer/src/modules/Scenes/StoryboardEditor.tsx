@@ -1,13 +1,14 @@
-import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip } from 'antd';
+import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip, Upload } from 'antd';
 import {
     PlusOutlined, VideoCameraOutlined, MoreOutlined, RobotOutlined,
     ScissorOutlined, CopyOutlined, SnippetsOutlined,
     ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined,
     UploadOutlined
 } from '@ant-design/icons';
+import { ProjectService } from '../../services/ProjectService';
 import { Scene, StoryboardShot, Project } from '../../../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const { TextArea } = Input;
@@ -22,6 +23,7 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
     const { t } = useTranslation();
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
     const [clipboard, setClipboard] = useState<StoryboardShot[]>([]);
 
     if (!scene) return <div>{t('common.selectScene', 'Select a scene')}</div>;
@@ -33,18 +35,62 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
     };
 
     // --- Selection Logic ---
-    const toggleSelection = (id: string, checked: boolean) => {
+    const handleShotClick = (id: string, event: React.MouseEvent | React.ChangeEvent) => {
+        const isShift = (event as React.MouseEvent).shiftKey;
+        const isMeta = (event as React.MouseEvent).metaKey || (event as React.MouseEvent).ctrlKey;
+
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+
+            if (isShift && lastSelectedId) {
+                const currentIndex = shots.findIndex(s => s.id === id);
+                const lastIndex = shots.findIndex(s => s.id === lastSelectedId);
+                const start = Math.min(currentIndex, lastIndex);
+                const end = Math.max(currentIndex, lastIndex);
+
+                // When shift clicking, we usually ADD the range to selection
+                for (let i = start; i <= end; i++) {
+                    newSet.add(shots[i].id);
+                }
+            } else if (isMeta) {
+                if (newSet.has(id)) newSet.delete(id);
+                else newSet.add(id);
+            } else {
+                // Normal click or checkbox toggle
+                // If it's a checkbox ChangeEvent, 'checked' is handled by toggleSelection
+                // But here we unify click behavior
+                if (newSet.has(id) && newSet.size === 1) newSet.delete(id);
+                else {
+                    newSet.clear();
+                    newSet.add(id);
+                }
+            }
+            return newSet;
+        });
+        setLastSelectedId(id);
+    };
+
+    const toggleSelection = (id: string, checked: boolean, event?: React.MouseEvent) => {
+        if (event?.shiftKey && lastSelectedId) {
+            handleShotClick(id, event);
+            return;
+        }
+
         setSelectedIds(prev => {
             const newSet = new Set(prev);
             if (checked) newSet.add(id);
             else newSet.delete(id);
             return newSet;
         });
+        if (checked) setLastSelectedId(id);
     };
 
-    const selectAll = (checked: boolean) => {
-        if (checked) setSelectedIds(new Set(shots.map(s => s.id)));
-        else setSelectedIds(new Set());
+    const selectAll = () => {
+        if (selectedIds.size > 0) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(shots.map(s => s.id)));
+        }
     };
 
     // --- Action Logic ---
@@ -98,6 +144,10 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
         message.success(`${t('storyboard.pasteUp')} ${toPaste.length}`);
     };
 
+    const maskJson = (text: string) => {
+        return text.replace(/[{}["\]:,\n]/g, ' ').replace(/\s+/g, ' ').trim();
+    };
+
     const handlePerShotAI = async (shot: StoryboardShot) => {
         try {
             const settings = await window.api.getSettings();
@@ -106,30 +156,52 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                 return;
             }
 
-            // If description is empty, try to generate it first?
-            // For now, let's assume it generates/regenerates the IMAGE if description exists.
             if (!shot.description.trim()) {
-                message.loading({ content: t('storyboard.generatingDescription'), key: 'shot-ai' });
-                const result = await window.api.generateAI('shot-description', {
+                message.loading({ content: t('storyboard.generatingDescription'), key: 'shot-ai', duration: 0 });
+
+                let fullContent = '';
+                const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                    fullContent += chunk;
+                    message.loading({
+                        content: `${t('storyboard.generatingDescription')}... ${maskJson(fullContent).slice(-50)}`,
+                        key: 'shot-ai',
+                        duration: 0
+                    });
+                });
+
+                const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
+                    removeChunkListener();
+                    removeEndListener();
+
+                    let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                    try {
+                        const result = JSON.parse(content);
+                        if (result && result.description) {
+                            handleFieldChange(shot.id, 'description', result.description);
+                            if (result.dialogue) handleFieldChange(shot.id, 'dialogue', result.dialogue);
+                            message.success({ content: t('storyboard.descriptionGenerated'), key: 'shot-ai' });
+                        } else {
+                            message.error({ content: t('common.failed'), key: 'shot-ai' });
+                        }
+                    } catch (e) {
+                        message.error({ content: t('common.failed') + ' (Invalid JSON)', key: 'shot-ai' });
+                    }
+                });
+
+                window.api.generateAIStream('shot-description', {
                     sceneTitle: scene.title,
                     sceneOutline: scene.outline,
                     shotIndex: shots.findIndex(s => s.id === shot.id) + 1,
                     previousShot: shots[shots.findIndex(s => s.id === shot.id) - 1]?.description || 'None'
                 });
-                if (result && result.description) {
-                    handleFieldChange(shot.id, 'description', result.description);
-                    if (result.dialogue) handleFieldChange(shot.id, 'dialogue', result.dialogue);
-                    message.success({ content: t('storyboard.descriptionGenerated'), key: 'shot-ai' });
-                } else {
-                    message.error({ content: t('common.failed'), key: 'shot-ai' });
-                }
                 return;
             }
 
             // Generate Image
-            message.loading({ content: t('storyboard.generatingImage'), key: 'shot-ai' });
+            message.loading({ content: t('storyboard.generatingImage'), key: 'shot-ai', duration: 0 });
             const prompt = `Art Style: ${project.wordSettings.artStyle}. Scene: ${scene.title}. Shot Description: ${shot.description}. Camera: ${shot.camera}.`;
-            const url = await window.api.generateImage(prompt);
+            // Note: generateImage is not streaming yet based on the plan, but we can make it persistent
+            const url = await window.api.generateImage(prompt, project.id, 'shot-' + shot.id);
             handleFieldChange(shot.id, 'image', url);
             message.success({ content: t('storyboard.imageGenerated'), key: 'shot-ai' });
         } catch (e) {
@@ -141,13 +213,72 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
         updateShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
     };
 
+    // --- Lazy Loading ---
+    useEffect(() => {
+        if (scene.id && project.id) {
+            ProjectService.loadSceneStoryboard(project.id, scene.id).then(res => {
+                if (Array.isArray(res)) {
+                    // Update only if local shots are empty or we want to force refresh?
+                    // The main ScenesPage handles project state. 
+                    // To avoid infinite loops or overwriting, we should be careful.
+                    // But here onUpdate({ storyboard: res }) would trigger parent update.
+                    onUpdate({ storyboard: res });
+                }
+            });
+        }
+    }, [scene.id, project.id]);
+
+    const getImageUrl = (url?: string): string | undefined => {
+        if (!url) return undefined;
+        if (url.startsWith('http') || url.startsWith('story-asset://')) return url;
+        return `story-asset://${url}`;
+    };
+
     const handleAutoGenerate = async () => {
         try {
             const settings = await window.api.getSettings();
             if (!settings.volcEngineApiKey) return message.error(t('common.error', 'No API Key'));
 
-            message.loading({ content: t('storyboard.generatingShots'), key: 'gen' });
-            const result = await window.api.generateAI('scene-storyboard', {
+            message.loading({ content: t('storyboard.generatingShots'), key: 'gen', duration: 0 });
+
+            let fullContent = '';
+            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                fullContent += chunk;
+                message.loading({
+                    content: `${t('storyboard.generatingShots')}... ${maskJson(fullContent).slice(-50)}`,
+                    key: 'gen',
+                    duration: 0
+                });
+            });
+
+            const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
+                removeChunkListener();
+                removeEndListener();
+
+                let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                try {
+                    const result = JSON.parse(content);
+                    if (Array.isArray(result) && result.length > 0) {
+                        const generatedShots: StoryboardShot[] = result.map((r: any) => ({
+                            id: uuidv4(),
+                            description: r.description || '',
+                            dialogue: r.dialogue || '',
+                            duration: r.duration || 2,
+                            camera: r.camera || '',
+                            sound: r.sound || '',
+                            image: r.image || undefined
+                        }));
+                        updateShots([...shots, ...generatedShots]);
+                        message.success({ content: t('storyboard.generated'), key: 'gen' });
+                    } else {
+                        message.warning({ content: t('storyboard.aiNoShots'), key: 'gen' });
+                    }
+                } catch (e) {
+                    message.error({ content: t('common.failed') + ' (Invalid JSON)', key: 'gen' });
+                }
+            });
+
+            window.api.generateAIStream('scene-storyboard', {
                 title: scene.title,
                 outline: scene.outline,
                 conflict: scene.conflict,
@@ -155,23 +286,6 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                 characters: project.characters.map(c => `${c.name}: ${c.appearance}`).join('\n')
             });
 
-            if (Array.isArray(result) && result.length > 0) {
-                const generatedShots: StoryboardShot[] = result.map((r: any) => ({
-                    id: uuidv4(),
-                    description: r.description || '',
-                    dialogue: r.dialogue || '',
-                    duration: r.duration || 2,
-                    camera: r.camera || '',
-                    sound: r.sound || '',
-                    image: r.image || undefined
-                }));
-                // IMPORTANT: Use callback or fresh props here if possible, but for now we use 'shots' from closure.
-                // Ideally we'd sync this better, but let's stick to the current pattern.
-                updateShots([...shots, ...generatedShots]);
-                message.success({ content: t('storyboard.generated'), key: 'gen' });
-            } else {
-                message.warning({ content: t('storyboard.aiNoShots'), key: 'gen' });
-            }
         } catch (e) {
             message.error({ content: t('common.failed') + ': ' + e, key: 'gen' });
         }
@@ -181,42 +295,84 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
     const IMG_WIDTH = 200;
     const IMG_HEIGHT = aspectRatio === '16:9' ? (IMG_WIDTH * 9 / 16) : (IMG_WIDTH * 16 / 9);
 
-    const getMenu = (index: number, shot: StoryboardShot): MenuProps => ({
-        items: [
-            { key: 'insert-up', label: t('storyboard.insertUp'), icon: <ArrowUpOutlined />, onClick: () => handleAddShot(index) },
-            { key: 'insert-down', label: t('storyboard.insertDown'), icon: <ArrowDownOutlined />, onClick: () => handleAddShot(index + 1) },
-            { type: 'divider' },
-            { key: 'cut', label: t('storyboard.cut'), icon: <ScissorOutlined />, onClick: () => handleCut([shot.id]) },
-            { key: 'copy', label: t('storyboard.copy'), icon: <CopyOutlined />, onClick: () => handleCopy([shot.id]) },
-            { key: 'paste-up', label: t('storyboard.pasteUp'), icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index) },
-            { key: 'paste-down', label: t('storyboard.pasteDown'), icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index + 1) },
-            { type: 'divider' },
-            {
-                key: 'move-up', label: t('storyboard.moveUp'), icon: <ArrowUpOutlined />, disabled: index === 0, onClick: () => {
-                    // simple single move
-                    const newShots = [...shots];
-                    [newShots[index], newShots[index - 1]] = [newShots[index - 1], newShots[index]];
-                    updateShots(newShots);
-                }
-            },
-            {
-                key: 'move-down', label: t('storyboard.moveDown'), icon: <ArrowDownOutlined />, disabled: index === shots.length - 1, onClick: () => {
-                    const newShots = [...shots];
-                    [newShots[index], newShots[index + 1]] = [newShots[index + 1], newShots[index]];
-                    updateShots(newShots);
-                }
-            },
-            { type: 'divider' },
-            { key: 'delete', label: t('storyboard.delete'), icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete([shot.id]) },
-        ]
-    });
+    const getMenu = (index: number, shot: StoryboardShot): MenuProps => {
+        const isTargetSelected = selectedIds.has(shot.id);
+        const targetIds = isTargetSelected ? Array.from(selectedIds) : [shot.id];
 
-    const getGlobalMenu = (): MenuProps => ({
-        items: [
-            { key: 'cut-sel', label: `${t('storyboard.cut')} (${selectedIds.size})`, disabled: selectedIds.size === 0, onClick: () => handleCut(Array.from(selectedIds)) },
-            { key: 'copy-sel', label: `${t('storyboard.copy')} (${selectedIds.size})`, disabled: selectedIds.size === 0, onClick: () => handleCopy(Array.from(selectedIds)) },
-        ]
-    });
+        // Helper to check if move is possible for the whole selection
+        // For simplicity, we enable move if at least one selected item can move or if the block can move.
+        // Actually, let's just use the target shot index as a reference? 
+        // No, let's check the extremes of the selection.
+        const selectedIndices = shots.map((s, i) => selectedIds.has(s.id) ? i : -1).filter(i => i !== -1);
+        const minIdx = Math.min(...selectedIndices);
+        const maxIdx = Math.max(...selectedIndices);
+
+        return {
+            items: [
+                { key: 'insert-up', label: t('storyboard.insertUp'), icon: <ArrowUpOutlined />, disabled: isTargetSelected && selectedIds.size > 1, onClick: () => handleAddShot(index) },
+                { key: 'insert-down', label: t('storyboard.insertDown'), icon: <ArrowDownOutlined />, disabled: isTargetSelected && selectedIds.size > 1, onClick: () => handleAddShot(index + 1) },
+                { type: 'divider' },
+                { key: 'cut', label: t('storyboard.cut'), icon: <ScissorOutlined />, onClick: () => handleCut(targetIds) },
+                { key: 'copy', label: t('storyboard.copy'), icon: <CopyOutlined />, onClick: () => handleCopy(targetIds) },
+                { key: 'paste-up', label: t('storyboard.pasteUp'), icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index) },
+                { key: 'paste-down', label: t('storyboard.pasteDown'), icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index + 1) },
+                { type: 'divider' },
+                {
+                    key: 'move-up', label: t('storyboard.moveUp'), icon: <ArrowUpOutlined />,
+                    disabled: isTargetSelected ? minIdx === 0 : index === 0,
+                    onClick: () => {
+                        if (isTargetSelected) {
+                            handleMove('up');
+                        } else {
+                            const newShots = [...shots];
+                            [newShots[index], newShots[index - 1]] = [newShots[index - 1], newShots[index]];
+                            updateShots(newShots);
+                        }
+                    }
+                },
+                {
+                    key: 'move-down', label: t('storyboard.moveDown'), icon: <ArrowDownOutlined />,
+                    disabled: isTargetSelected ? maxIdx === shots.length - 1 : index === shots.length - 1,
+                    onClick: () => {
+                        if (isTargetSelected) {
+                            handleMove('down');
+                        } else {
+                            const newShots = [...shots];
+                            [newShots[index], newShots[index + 1]] = [newShots[index + 1], newShots[index]];
+                            updateShots(newShots);
+                        }
+                    }
+                },
+                { type: 'divider' },
+                { key: 'delete', label: t('storyboard.delete'), icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(targetIds) },
+            ]
+        };
+    };
+
+    // Robust move selection
+    const handleMove = (direction: 'up' | 'down') => {
+        if (selectedIds.size === 0) return;
+        const selectedIndices = shots.map((s, i) => selectedIds.has(s.id) ? i : -1).filter(i => i !== -1).sort((a, b) => a - b);
+        const minIdx = selectedIndices[0];
+        const maxIdx = selectedIndices[selectedIndices.length - 1];
+
+        const selectedShots = shots.filter(s => selectedIds.has(s.id));
+        const unselectedShots = shots.filter(s => !selectedIds.has(s.id));
+
+        if (direction === 'up') {
+            if (minIdx === 0) return;
+            const targetShot = shots[minIdx - 1];
+            const insertBeforeIdx = unselectedShots.indexOf(targetShot);
+            unselectedShots.splice(insertBeforeIdx, 0, ...selectedShots);
+            updateShots(unselectedShots);
+        } else {
+            if (maxIdx === shots.length - 1) return;
+            const targetShot = shots[maxIdx + 1];
+            const insertAfterIdx = unselectedShots.indexOf(targetShot);
+            unselectedShots.splice(insertAfterIdx + 1, 0, ...selectedShots);
+            updateShots(unselectedShots);
+        }
+    };
 
     return (
         <div style={{ padding: '12px 24px', height: '100%', display: 'flex', flexDirection: 'column', background: '#141414' }}>
@@ -225,11 +381,9 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                 <Space>
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAddShot()}>{t('storyboard.addShot')}</Button>
                     <Button icon={<VideoCameraOutlined />} onClick={handleAutoGenerate}>{t('storyboard.autoGenerate')}</Button>
-                    {selectedIds.size > 0 && (
-                        <Dropdown menu={getGlobalMenu()}>
-                            <Button>{t('storyboard.selectionActions')} ({selectedIds.size})</Button>
-                        </Dropdown>
-                    )}
+                    <Button onClick={selectAll}>
+                        {selectedIds.size > 0 ? t('common.deselectAll', 'Deselect All') : t('common.selectAll', 'Select All')}
+                    </Button>
                 </Space>
                 <Space>
                     <span>{t('storyboard.screenFormat')}:</span>
@@ -246,7 +400,7 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                     <Checkbox
                         checked={shots.length > 0 && selectedIds.size === shots.length}
                         indeterminate={selectedIds.size > 0 && selectedIds.size < shots.length}
-                        onChange={e => selectAll(e.target.checked)}
+                        onChange={selectAll}
                     />
                 </div>
                 <div style={{ width: IMG_WIDTH + 16 }}>{t('storyboard.visual')}</div>
@@ -263,48 +417,72 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
             <div style={{ flex: 1, overflowY: 'auto' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {shots.map((shot, index) => (
-                        <div key={shot.id} style={{
-                            display: 'flex',
-                            background: selectedIds.has(shot.id) ? '#1f2a3a' : '#1f1f1f',
-                            border: selectedIds.has(shot.id) ? '1px solid #1677ff' : '1px solid #333',
-                            borderRadius: 4,
-                            padding: 8
-                        }}>
+                        <div
+                            key={shot.id}
+                            onClick={(e) => handleShotClick(shot.id, e)}
+                            style={{
+                                display: 'flex',
+                                background: selectedIds.has(shot.id) ? '#1f2a3a' : '#1f1f1f',
+                                border: selectedIds.has(shot.id) ? '1px solid #1677ff' : '1px solid #333',
+                                borderRadius: 4,
+                                padding: 8,
+                                cursor: 'pointer'
+                            }}
+                        >
                             {/* Left Controls */}
                             <div style={{ width: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, borderRight: '1px solid #333', marginRight: 12, paddingTop: 4 }}>
                                 <span style={{ color: '#666', fontWeight: 'bold' }}>#{index + 1}</span>
                                 <Tooltip title={t('scenes.aiAssistance', 'AI Assistance')}>
-                                    <Button type="text" size="small" icon={<RobotOutlined style={{ color: '#1677ff' }} />} onClick={() => handlePerShotAI(shot)} />
+                                    <Button type="text" size="small" icon={<RobotOutlined style={{ color: '#1677ff' }} />} onClick={(e) => { e.stopPropagation(); handlePerShotAI(shot); }} />
                                 </Tooltip>
                                 <Dropdown menu={getMenu(index, shot)} trigger={['click']}>
-                                    <Button type="text" size="small" icon={<MoreOutlined style={{ color: '#fff', fontSize: 16 }} />} />
+                                    <Button type="text" size="small" icon={<MoreOutlined style={{ color: '#fff', fontSize: 16 }} />} onClick={e => e.stopPropagation()} />
                                 </Dropdown>
                                 <Checkbox
                                     checked={selectedIds.has(shot.id)}
-                                    onChange={e => toggleSelection(shot.id, e.target.checked)}
+                                    onChange={e => toggleSelection(shot.id, e.target.checked, e.nativeEvent as any)}
+                                    onClick={e => e.stopPropagation()}
                                 />
                             </div>
 
                             {/* Image */}
-                            <div style={{
-                                width: IMG_WIDTH,
-                                height: IMG_HEIGHT,
-                                marginRight: 16,
-                                background: '#000',
-                                border: '1px dashed #444',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                            }}>
-                                {shot.image ? (
-                                    <img src={shot.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                    <div style={{ textAlign: 'center', color: '#555', fontSize: 12 }}>
-                                        <UploadOutlined style={{ fontSize: 20, marginBottom: 4 }} /><br />{t('common.upload')}
-                                    </div>
-                                )}
-                            </div>
+                            <Upload
+                                showUploadList={false}
+                                beforeUpload={async (file) => {
+                                    try {
+                                        // @ts-ignore
+                                        const filePath = file.path;
+                                        if (filePath) {
+                                            const res = await ProjectService.uploadImage(project.id, filePath);
+                                            handleFieldChange(shot.id, 'image', res);
+                                        }
+                                    } catch (e) {
+                                        message.error(t('characters.failed') + e);
+                                    }
+                                    return false;
+                                }}
+                            >
+                                <div style={{
+                                    width: IMG_WIDTH,
+                                    height: IMG_HEIGHT,
+                                    marginRight: 16,
+                                    background: '#000',
+                                    border: '1px dashed #444',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                    cursor: 'pointer'
+                                }}>
+                                    {shot.image ? (
+                                        <img src={getImageUrl(shot.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ textAlign: 'center', color: '#555', fontSize: 12 }}>
+                                            <UploadOutlined style={{ fontSize: 20, marginBottom: 4 }} /><br />{t('common.upload')}
+                                        </div>
+                                    )}
+                                </div>
+                            </Upload>
 
                             {/* Fields Container (Horizontal Scroll) */}
                             <div style={{ flex: 1, overflowX: 'auto' }}>
@@ -313,6 +491,7 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                                         <TextArea
                                             value={shot.description}
                                             onChange={e => handleFieldChange(shot.id, 'description', e.target.value)}
+                                            onClick={e => e.stopPropagation()}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
                                             placeholder={t('storyboard.description')}
                                         />
@@ -321,6 +500,7 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                                         <TextArea
                                             value={shot.dialogue}
                                             onChange={e => handleFieldChange(shot.id, 'dialogue', e.target.value)}
+                                            onClick={e => e.stopPropagation()}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
                                             placeholder={t('storyboard.dialogue')}
                                         />
@@ -330,6 +510,7 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                                             type="number"
                                             value={shot.duration}
                                             onChange={e => handleFieldChange(shot.id, 'duration', parseFloat(e.target.value))}
+                                            onClick={e => e.stopPropagation()}
                                             style={{ background: '#141414', border: '1px solid #333', color: '#ddd' }}
                                             suffix="s"
                                         />
@@ -338,6 +519,7 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                                         <TextArea
                                             value={shot.camera}
                                             onChange={e => handleFieldChange(shot.id, 'camera', e.target.value)}
+                                            onClick={e => e.stopPropagation()}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
                                             placeholder={t('storyboard.camera')}
                                         />
@@ -346,6 +528,7 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                                         <TextArea
                                             value={shot.sound}
                                             onChange={e => handleFieldChange(shot.id, 'sound', e.target.value)}
+                                            onClick={e => e.stopPropagation()}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
                                             placeholder={t('storyboard.sound')}
                                         />

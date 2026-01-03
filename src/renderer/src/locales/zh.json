@@ -145,6 +145,7 @@
       "generateCount": "生成 {{count}} 个候选角色",
       "success": "候选角色生成成功！",
       "clickToStart": "点击“生成”开始。",
+      "prompt": "根据您的故事设定，我们生成了以下候选角色：",
       "select": "选取",
       "noApiKey": "请先在设置中配置 API Key"
     }

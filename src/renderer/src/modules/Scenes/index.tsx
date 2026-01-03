@@ -157,6 +157,9 @@ export default function ScenesPage() {
                     />
                 </div>
 
+                {/* Spacer to keep trigger at bottom when collapsed */}
+                {collapsed && <div style={{ flex: 1 }} />}
+
                 {/* Collapse Trigger at bottom */}
                 <div style={{
                     height: 32,
@@ -167,7 +170,8 @@ export default function ScenesPage() {
                     justifyContent: 'center',
                     cursor: 'pointer',
                     zIndex: 20,
-                    flexShrink: 0
+                    flexShrink: 0,
+                    marginTop: 'auto' // Robust bottom alignment
                 }}
                     onClick={() => setCollapsed(!collapsed)}
                 >

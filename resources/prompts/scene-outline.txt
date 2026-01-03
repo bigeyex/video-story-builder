@@ -9,8 +9,8 @@ Characters involved: {{characters}}
 
 Scene Title: {{title}}
 
-Output a JSON object with two fields:
-- outline: a string describing the sequence of events, focusing on visual storytelling and pacing.
-- conflict: a string describing the core conflict or tension in this scene.
+Output a concise JSON object with two fields:
+- outline: a punchy sequence of events focusing strictly on plot movement and character development. Avoid deep sensory or visual descriptions (reserved for shot generation).
+- conflict: the core emotional or physical tension driving the scene.
 
 Do not include any markdown formatting, just the raw JSON object.

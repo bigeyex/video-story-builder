@@ -77,6 +77,11 @@ export interface API {
   getSettings: () => Promise<GlobalSettings>;
   saveSettings: (settings: GlobalSettings) => Promise<boolean>;
   generateAI: (type: string, params: any) => Promise<any>;
-  generateImage: (prompt: string) => Promise<string>;
+  generateImage: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   openProjectsFolder: () => Promise<void>;
+  uploadImage: (projectId: string, filePath: string) => Promise<string>;
+  loadSceneStoryboard: (projectId: string, sceneId: string) => Promise<StoryboardShot[]>;
+  generateAIStream: (type: string, params: any) => void;
+  onAIStreamChunk: (callback: (chunk: string) => void) => () => void;
+  onAIStreamEnd: (callback: (fullContent: string) => void) => () => void;
 }

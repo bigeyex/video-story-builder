@@ -83,7 +83,6 @@ export default function CharactersPage() {
             position: { x: 100 + Math.random() * 50, y: 100 + Math.random() * 50 }
         };
         updateProject([...project.characters, newChar], project.relationships);
-        setGenModalOpen(false);
         setSelectedCharId(newChar.id);
         message.success(t('characters.characterAdded'));
     };
@@ -102,14 +101,12 @@ export default function CharactersPage() {
                     onSelect={setSelectedCharId}
                     selectedId={selectedCharId}
                 />
-                <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10 }}>
+                <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, display: 'flex', gap: 8 }}>
                     <Button type="primary" icon={<PlusOutlined />} onClick={handleAddCharacter}>{t('characters.addCharacter')}</Button>
+                    <Button icon={<RobotOutlined />} onClick={() => setGenModalOpen(true)}>{t('characters.aiGenerate')}</Button>
                 </div>
             </Content>
             <Sider width={350} theme="dark" style={{ borderLeft: '1px solid #333' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 16px' }}>
-                    <Button icon={<RobotOutlined />} onClick={() => setGenModalOpen(true)}>{t('characters.aiGenerate')}</Button>
-                </div>
                 <CharacterDetails
                     project={project}
                     character={selectedChar}

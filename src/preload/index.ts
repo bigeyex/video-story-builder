@@ -12,8 +12,21 @@ const api = {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
   generateAI: (type: string, params: any) => ipcRenderer.invoke('generate-ai', type, params),
-  generateImage: (prompt: string) => ipcRenderer.invoke('generate-image', prompt),
-  openProjectsFolder: () => ipcRenderer.invoke('open-projects-folder')
+  generateImage: (prompt: string, projectId: string, characterId: string) => ipcRenderer.invoke('generate-image', prompt, projectId, characterId),
+  openProjectsFolder: () => ipcRenderer.invoke('open-projects-folder'),
+  uploadImage: (projectId: string, filePath: string) => ipcRenderer.invoke('upload-image', projectId, filePath),
+  loadSceneStoryboard: (projectId: string, sceneId: string) => ipcRenderer.invoke('load-scene-storyboard', projectId, sceneId),
+  generateAIStream: (type: string, params: any) => ipcRenderer.send('generate-ai-stream', type, params),
+  onAIStreamChunk: (callback: (chunk: string) => void) => {
+    const listener = (_: any, chunk: string) => callback(chunk)
+    ipcRenderer.on('ai-stream-chunk', listener)
+    return () => ipcRenderer.removeListener('ai-stream-chunk', listener)
+  },
+  onAIStreamEnd: (callback: (fullContent: string) => void) => {
+    const listener = (_: any, fullContent: string) => callback(fullContent)
+    ipcRenderer.on('ai-stream-end', listener)
+    return () => ipcRenderer.removeListener('ai-stream-end', listener)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

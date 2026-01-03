@@ -33,6 +33,10 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
         );
     }
 
+    const maskJson = (text: string) => {
+        return text.replace(/[{}["\]:,\n]/g, ' ').replace(/\s+/g, ' ').trim();
+    };
+
     const handleGenerateOutline = async () => {
         try {
             const settings = await window.api.getSettings();
@@ -40,10 +44,38 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 message.error(t('common.error', 'Please configure API Key first'));
                 return;
             }
-            message.loading({ content: t('scenes.generating'), key: 'gen' });
+            message.loading({ content: t('scenes.generating'), key: 'gen', duration: 0 });
+
+            let fullContent = '';
+            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                fullContent += chunk;
+                message.loading({
+                    content: `${t('scenes.generating')}... ${maskJson(fullContent).slice(-50)}`,
+                    key: 'gen',
+                    duration: 0
+                });
+            });
+
+            const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
+                removeChunkListener();
+                removeEndListener();
+
+                let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                try {
+                    const result = JSON.parse(content);
+                    onUpdate({
+                        outline: result.outline || '',
+                        conflict: result.conflict || ''
+                    });
+                    message.success({ content: t('scenes.generated'), key: 'gen' });
+                } catch (e) {
+                    onUpdate({ outline: content });
+                    message.success({ content: t('scenes.generated'), key: 'gen' });
+                }
+            });
 
             const charactersStr = project.characters.map(c => `${c.name}: ${c.personality}`).join('\n');
-            const result = await window.api.generateAI('scene-outline', {
+            window.api.generateAIStream('scene-outline', {
                 title: scene?.title || '',
                 targetAudience: project.wordSettings.targetAudience,
                 artStyle: project.wordSettings.artStyle,
@@ -51,16 +83,6 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 characters: charactersStr
             });
 
-            if (result && typeof result === 'object') {
-                onUpdate({
-                    outline: result.outline || '',
-                    conflict: result.conflict || ''
-                });
-            } else {
-                onUpdate({ outline: result });
-            }
-
-            message.success({ content: t('scenes.generated'), key: 'gen' });
         } catch (e: any) {
             message.error({ content: t('characters.failed') + (e.message || e), key: 'gen' });
         }
@@ -99,7 +121,7 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                         <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.outline').toUpperCase()}</div>
                         <Form.Item name="outline" style={{ marginBottom: 0 }}>
                             <TextArea
-                                autoSize={{ minRows: 4, maxRows: 12 }}
+                                autoSize={{ minRows: 4, maxRows: 4 }}
                                 placeholder={t('scenes.outlinePlaceholder')}
                                 style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />
@@ -109,7 +131,7 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                         <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.conflict').toUpperCase()}</div>
                         <Form.Item name="conflict" style={{ marginBottom: 0 }}>
                             <TextArea
-                                autoSize={{ minRows: 4, maxRows: 12 }}
+                                autoSize={{ minRows: 4, maxRows: 4 }}
                                 placeholder={t('scenes.conflictPlaceholder')}
                                 style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />

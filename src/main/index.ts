@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, protocol } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -12,6 +12,11 @@ import OpenAI from 'openai'
 // In dev, use app.getAppPath() or similar. In prod, use relative to exe.
 const PROJECT_DIR = join(app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath(), 'storyprojects')
 
+// Register custom protocol for local assets
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'story-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, bypassCSP: true, stream: true } }
+])
+
 async function ensureProjectDir(): Promise<void> {
   try {
     await fs.access(PROJECT_DIR)
@@ -23,8 +28,8 @@ async function ensureProjectDir(): Promise<void> {
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 1350,
+    height: 1005,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -56,7 +61,52 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  
   console.log('Projects directory:', PROJECT_DIR)
+
+  // Handle story-asset protocol
+    protocol.handle('story-asset', async (request) => {
+    let url = request.url.replace('story-asset://', '')
+    // Strip file:// if somehow injected (happened in some edge cases)
+    url = url.replace(/^file:\/\/\/?/, '')
+    
+    // On Windows, URLs might have encoded backslashes
+    const decodedPath = decodeURIComponent(url)
+    
+    // If it's already an absolute path and starts with PROJECT_DIR, use it
+    // Otherwise, join with PROJECT_DIR
+    let absolutePath = decodedPath
+    if (!path.isAbsolute(decodedPath)) {
+      absolutePath = join(PROJECT_DIR, decodedPath)
+    } else {
+      // Normalize to handle potential /D:/ drive letter issues
+      absolutePath = path.normalize(decodedPath)
+    }
+
+    if (!absolutePath.toLowerCase().startsWith(PROJECT_DIR.toLowerCase())) {
+      console.error('Forbidden access to:', absolutePath, 'PROJECT_DIR:', PROJECT_DIR)
+      return new Response('Forbidden', { status: 403 })
+    }
+
+    try {
+      const data = await fs.readFile(absolutePath)
+      const ext = path.extname(absolutePath).toLowerCase()
+      let contentType = 'application/octet-stream'
+
+      if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg'
+      else if (ext === '.png') contentType = 'image/png'
+      else if (ext === '.gif') contentType = 'image/gif'
+      else if (ext === '.webp') contentType = 'image/webp'
+      else if (ext === '.svg') contentType = 'image/svg+xml'
+
+      return new Response(data, {
+        headers: { 'Content-Type': contentType }
+      })
+    } catch (e) {
+      console.error('Failed to read story-asset:', e)
+      return new Response('Not Found', { status: 404 })
+    }
+  })
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.storybuilder.app')
 
@@ -123,29 +173,138 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
   }
 })
 
-ipcMain.handle('generate-image', async (_, prompt: string) => {
-  const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
-  const settings = JSON.parse(settingsStr)
-  const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
+  try {
+    const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(settingsStr)
+    const textModelId = settings.textModelId || settings.volcEngineModel || 'doubao-seed-1-6-251015'
+    
+    if (!settings.volcEngineApiKey) {
+      throw new Error('API Key not configured')
+    }
 
-  if (!settings.volcEngineApiKey) {
-    throw new Error('API Key not configured')
+    let promptPath = ''
+    if (app.isPackaged) {
+      promptPath = join(process.resourcesPath, 'prompts', `${type}.txt`)
+    } else {
+      promptPath = join(__dirname, '../../resources/prompts', `${type}.txt`)
+    }
+
+    let prompt = await fs.readFile(promptPath, 'utf-8')
+    for (const [key, value] of Object.entries(params)) {
+      prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value))
+    }
+
+    const langMap = { 'zh': 'Chinese', 'en': 'English' }
+    const targetLang = langMap[settings.language] || 'English'
+    prompt += `\n\nPlease respond in ${targetLang}.`
+
+    const client = new OpenAI({
+      apiKey: settings.volcEngineApiKey,
+      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+    })
+
+    const stream = await client.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: textModelId,
+      stream: true,
+    })
+
+    let fullContent = ''
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || ''
+      if (content) {
+        fullContent += content
+        event.sender.send('ai-stream-chunk', content)
+      }
+    }
+    event.sender.send('ai-stream-end', fullContent)
+  } catch (e: any) {
+    console.error('Streaming AI error:', e)
+    event.sender.send('ai-stream-error', e.message || String(e))
   }
+})
 
-  const client = new OpenAI({
-    apiKey: settings.volcEngineApiKey,
-    baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+  ipcMain.handle('generate-image', async (_, prompt: string, projectId: string, characterId: string) => {
+    const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(settingsStr)
+    const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+
+    if (!settings.volcEngineApiKey) {
+      throw new Error('API Key not configured')
+    }
+
+    const client = new OpenAI({
+      apiKey: settings.volcEngineApiKey,
+      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+    })
+
+    const response = await client.images.generate({
+      model: imageModelId,
+      prompt: prompt,
+      n: 1,
+      size: '2048x2048' as any
+    });
+
+    const url = response.data?.[0]?.url || '';
+    if (!url || !projectId || !characterId) return url;
+
+    try {
+      const avatarDir = join(PROJECT_DIR, projectId, 'avatars');
+      await fs.mkdir(avatarDir, { recursive: true });
+      
+      const fileName = `${characterId}_${Date.now()}.png`;
+      const filePath = join(avatarDir, fileName);
+      
+      const imgRes = await fetch(url);
+      const buffer = await imgRes.arrayBuffer();
+      await fs.writeFile(filePath, Buffer.from(buffer));
+      
+      // Return relative path: {projectId}/avatars/{fileName}
+      return `${projectId}/avatars/${fileName}`;
+    } catch (e) {
+      console.error('Failed to save avatar locally:', e);
+      return url;
+    }
   })
 
-  const response = await client.images.generate({
-    model: imageModelId,
-    prompt: prompt,
-    n: 1,
-    size: '1024x1024'
-  });
+  ipcMain.handle('upload-image', async (_, projectId: string, filePath: string) => {
+    const { nativeImage } = require('electron')
+    try {
+      const img = nativeImage.createFromPath(filePath)
+      if (img.isEmpty()) throw new Error('Failed to load image')
 
-  return response.data?.[0]?.url || '';
-})
+      // Compress/Resize: Max width 1024
+      const size = img.getSize()
+      let finalImg = img
+      if (size.width > 1024) {
+        finalImg = img.resize({ width: 1024 })
+      }
+
+      const avatarDir = join(PROJECT_DIR, projectId, 'avatars')
+      await fs.mkdir(avatarDir, { recursive: true })
+      
+      const fileName = `upload_${Date.now()}.png`
+      const relativePath = `${projectId}/avatars/${fileName}`
+      const absolutePath = join(PROJECT_DIR, relativePath)
+      
+      await fs.writeFile(absolutePath, finalImg.toPNG())
+      return `story-asset://${relativePath}`
+    } catch (e) {
+      console.error('Failed to upload image:', e)
+      throw e
+    }
+  })
+
+  ipcMain.handle('load-scene-storyboard', async (_, projectId: string, sceneId: string) => {
+    const filePath = join(PROJECT_DIR, projectId, 'scenes', `${sceneId}.json`)
+    try {
+      const content = await fs.readFile(filePath, 'utf-8')
+      return JSON.parse(content)
+    } catch {
+      return []
+    }
+  })
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -205,6 +364,7 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
     const timestamp = Date.now()
     const projectDir = join(PROJECT_DIR, id)
     await fs.mkdir(projectDir, { recursive: true })
+    await fs.mkdir(join(projectDir, 'scenes'), { recursive: true })
 
     const newProject = {
       id,
@@ -247,9 +407,25 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
   ipcMain.handle('save-project', async (_, project: any) => {
     await ensureProjectDir()
     const timestamp = Date.now()
-    const updatedProject = { ...project, lastModified: timestamp }
     const projectDir = join(PROJECT_DIR, project.id)
-    await fs.mkdir(projectDir, { recursive: true })
+    const scenesDir = join(projectDir, 'scenes')
+    await fs.mkdir(scenesDir, { recursive: true })
+
+    // Split storyboards
+    const chapters = project.chapters.map(chap => ({
+      ...chap,
+      scenes: chap.scenes.map(scene => {
+        const { storyboard, ...sceneRest } = scene
+        if (storyboard) {
+          const sceneFile = join(scenesDir, `${scene.id}.json`)
+          // Save storyboard separately
+          fs.writeFile(sceneFile, JSON.stringify(storyboard, null, 2))
+        }
+        return { ...sceneRest, storyboard: [] } // Empty in project.json
+      })
+    }))
+
+    const updatedProject = { ...project, chapters, lastModified: timestamp }
     await fs.writeFile(join(projectDir, 'project.json'), JSON.stringify(updatedProject, null, 2))
     return true
   })

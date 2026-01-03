@@ -25,5 +25,13 @@ export const ProjectService = {
 
   openProjectsFolder: async (): Promise<void> => {
     return window.api.openProjectsFolder();
+  },
+  
+  loadSceneStoryboard: async (projectId: string, sceneId: string): Promise<any> => {
+    return window.api.loadSceneStoryboard(projectId, sceneId);
+  },
+  
+  uploadImage: async (projectId: string, filePath: string): Promise<string> => {
+    return window.api.uploadImage(projectId, filePath);
   }
 };

@@ -145,6 +145,7 @@
       "generateCount": "Generate {{count}} Candidates",
       "success": "Characters generated successfully!",
       "clickToStart": "Click Generate to start.",
+      "prompt": "Based on your story settings, we've generated these character candidates:",
       "select": "Select",
       "noApiKey": "Please configure API Key in settings first"
     }

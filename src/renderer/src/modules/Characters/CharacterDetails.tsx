@@ -1,5 +1,6 @@
-import { Form, Input, Button, Avatar, message } from 'antd';
+import { Form, Input, Button, Avatar, message, Upload } from 'antd';
 import { UploadOutlined, UserOutlined } from '@ant-design/icons';
+import { ProjectService } from '../../services/ProjectService';
 import { Character, Project } from '../../../../shared/types';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,9 +40,10 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
 
     const handleGenerateAvatar = async () => {
         try {
-            message.loading({ content: t('characters.generatingAvatar'), key: 'avatar' });
+            message.loading({ content: t('characters.generatingAvatar'), key: 'avatar', duration: 0 });
             const prompt = `Character avatar for ${character.name}: ${character.appearance}, ${character.personality}. Art Style: ${project.wordSettings.artStyle || 'Cinematic'}.`;
-            const url = await window.api.generateImage(prompt);
+            const url = await window.api.generateImage(prompt, project.id, character.id);
+            // Result is already relative or story-asset:// from main process
             onUpdate(character.id, { avatar: url });
             message.success({ content: t('characters.avatarGenerated'), key: 'avatar' });
         } catch (e) {
@@ -49,12 +51,37 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
         }
     };
 
+    const handleUpload = async (file: File) => {
+        try {
+            // @ts-ignore - access path if available (Electron)
+            const filePath = file.path;
+            if (!filePath) {
+                message.error('File path not available');
+                return;
+            }
+            const relativePath = await ProjectService.uploadImage(project.id, filePath);
+            onUpdate(character.id, { avatar: relativePath });
+            message.success(t('common.success'));
+        } catch (e) {
+            message.error(t('characters.failed') + e);
+        }
+        return false; // Prevent default upload
+    };
+
+    const getImageUrl = (url?: string) => {
+        if (!url) return undefined;
+        if (url.startsWith('http') || url.startsWith('story-asset://')) return url;
+        return `story-asset://${url}`;
+    };
+
     return (
         <div style={{ padding: 24, height: '100%', overflowY: 'auto' }}>
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                <Avatar size={100} src={character.avatar} icon={<UserOutlined />} />
+                <Avatar size={100} src={getImageUrl(character.avatar)} icon={<UserOutlined />} />
                 <div style={{ marginTop: 16 }}>
-                    <Button icon={<UploadOutlined />}>{t('characters.uploadAvatar')}</Button>
+                    <Upload beforeUpload={handleUpload} showUploadList={false}>
+                        <Button icon={<UploadOutlined />}>{t('characters.uploadAvatar')}</Button>
+                    </Upload>
                     <Button icon={<UserOutlined />} style={{ marginLeft: 8 }} onClick={handleGenerateAvatar}>{t('characters.generateAvatar')}</Button>
                 </div>
             </div>
