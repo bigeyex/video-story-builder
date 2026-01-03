@@ -95,7 +95,15 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
     prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value))
   }
 
-  // 4. Call OpenAI (VolcEngine compatible)
+  // 4. Inject language instruction
+  const langMap = {
+    'zh': 'Chinese',
+    'en': 'English'
+  }
+  const targetLang = langMap[settings.language] || 'English'
+  prompt += `\n\nPlease respond in ${targetLang}.`
+
+  // 5. Call OpenAI (VolcEngine compatible)
   const client = new OpenAI({
     apiKey: settings.volcEngineApiKey,
     baseURL: 'https://ark.cn-beijing.volces.com/api/v3', // VolcEngine Endpoint
@@ -192,7 +200,21 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
       wordSettings: { targetAudience: '', artStyle: '', summary: '' },
       characters: [],
       relationships: [],
-      chapters: []
+      chapters: [
+        {
+          id: `chap-${timestamp}`,
+          title: 'Chapter 1',
+          scenes: [
+            {
+              id: `scene-${timestamp}`,
+              title: 'Scene 1',
+              outline: '',
+              conflict: '',
+              storyboard: []
+            }
+          ]
+        }
+      ]
     }
     await fs.writeFile(join(PROJECT_DIR, `${id}.json`), JSON.stringify(newProject, null, 2))
     return newProject

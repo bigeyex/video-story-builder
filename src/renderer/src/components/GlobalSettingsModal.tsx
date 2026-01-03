@@ -75,16 +75,16 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
                 <Form.Item
                     name="volcEngineApiKey"
                     label={t('settings.apiKey')}
-                    rules={[{ required: true, message: 'API Key is required' }]}
+                    rules={[{ required: true, message: t('settings.apiKeyRequired') }]}
                 >
-                    <Input.Password placeholder="Enter your VolcEngine API Key" />
+                    <Input.Password placeholder={t('settings.apiKeyPlaceholder')} />
                 </Form.Item>
                 <Form.Item
                     name="volcEngineModel"
                     label={t('settings.modelId')}
-                    rules={[{ required: true, message: 'Model ID is required' }]}
+                    rules={[{ required: true, message: t('settings.modelIdRequired') }]}
                 >
-                    <Input placeholder="e.g. ep-2025..." />
+                    <Input placeholder={t('settings.modelIdPlaceholder')} />
                 </Form.Item>
             </Form>
         </Modal>

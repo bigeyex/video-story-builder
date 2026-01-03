@@ -1,6 +1,7 @@
 import { Layout, Button, message } from 'antd';
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ProjectService } from '../../services/ProjectService';
 import { Project, Character, Relationship } from '../../../../shared/types';
 import CharacterGraph from './CharacterGraph';
@@ -11,6 +12,7 @@ import { PlusOutlined, RobotOutlined } from '@ant-design/icons';
 const { Content, Sider } = Layout;
 
 export default function CharactersPage() {
+    const { t } = useTranslation();
     const { projectId } = useParams();
     const [project, setProject] = useState<Project | null>(null);
     const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function CharactersPage() {
         try {
             await ProjectService.saveProject(p);
         } catch {
-            message.error('Auto-save failed');
+            message.error(t('characters.autoSaveFailed'));
         }
     };
 
@@ -46,7 +48,7 @@ export default function CharactersPage() {
         if (!project) return;
         const newChar: Character = {
             id: `char-${Date.now()}`,
-            name: 'New Character',
+            name: `${t('characters.title')} ${project.characters.length + 1}`,
             background: '',
             personality: '',
             appearance: '',
@@ -74,7 +76,7 @@ export default function CharactersPage() {
         if (!project) return;
         const newChar: Character = {
             id: `char-${Date.now()}`,
-            name: candidate.name || 'AI Character',
+            name: candidate.name || t('characters.aiCharacter'),
             background: candidate.background || '',
             personality: candidate.personality || '',
             appearance: candidate.appearance || '',
@@ -83,7 +85,7 @@ export default function CharactersPage() {
         updateProject([...project.characters, newChar], project.relationships);
         setGenModalOpen(false);
         setSelectedCharId(newChar.id);
-        message.success('Character added');
+        message.success(t('characters.characterAdded'));
     };
 
     if (!project) return <div>Loading...</div>;
@@ -101,12 +103,12 @@ export default function CharactersPage() {
                     selectedId={selectedCharId}
                 />
                 <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10 }}>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAddCharacter}>Add Character</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAddCharacter}>{t('characters.addCharacter')}</Button>
                 </div>
             </Content>
             <Sider width={350} theme="dark" style={{ borderLeft: '1px solid #333' }}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 16px' }}>
-                    <Button icon={<RobotOutlined />} onClick={() => setGenModalOpen(true)}>AI Generate</Button>
+                    <Button icon={<RobotOutlined />} onClick={() => setGenModalOpen(true)}>{t('characters.aiGenerate')}</Button>
                 </div>
                 <CharacterDetails
                     project={project}

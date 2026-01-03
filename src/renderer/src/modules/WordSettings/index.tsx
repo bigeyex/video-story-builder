@@ -1,6 +1,7 @@
-import { Typography, Row, Col, Input, Card, List, Button, message } from 'antd';
+import { Typography, Row, Col, Input, Card, List, message } from 'antd';
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ProjectService } from '../../services/ProjectService';
 import { Project } from '../../../../shared/types';
 
@@ -9,34 +10,14 @@ const { TextArea } = Input;
 
 type FieldType = 'targetAudience' | 'artStyle' | 'summary';
 
-const EXAMPLES: Record<FieldType, string[]> = {
-    targetAudience: [
-        "Young Adults (18-25)",
-        "Children (5-10)",
-        "Sci-Fi Enthusiasts",
-        "General Audience",
-        "Romance Fans"
-    ],
-    artStyle: [
-        "Cyberpunk",
-        "Watercolor",
-        "Pixar Style 3D",
-        "Anime (Studio Ghibli style)",
-        "Hyper-realistic"
-    ],
-    summary: [
-        "A lone warrior travels across a dystopian wasteland to find a lost city.",
-        "Two high school students discover a portal to a magical world in their attic.",
-        "A detective solves crimes in a city inhabited by robots.",
-        "An epic fantasy about a dragon and a knight who become friends.",
-        "A slice-of-life story about a cat running a coffee shop."
-    ]
-};
-
 export default function WordSettingsPage() {
+    const { t } = useTranslation();
     const { projectId } = useParams();
     const [project, setProject] = useState<Project | null>(null);
     const [activeField, setActiveField] = useState<FieldType>('summary');
+
+    // Fetch examples from i18n
+    const EXAMPLES = t('worldSettings.examples', { returnObjects: true }) as Record<FieldType, string[]>;
 
     // Ref for debounced save
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -50,9 +31,8 @@ export default function WordSettingsPage() {
     const saveProject = async (p: Project) => {
         try {
             await ProjectService.saveProject(p);
-            // message.success('Saved'); // Too noisy for auto-save
         } catch {
-            message.error('Auto-save failed');
+            message.error(t('common.autoSaveFailed'));
         }
     };
 
@@ -83,52 +63,61 @@ export default function WordSettingsPage() {
         handleChange(activeField, newVal);
     };
 
-    if (!project) return <div>Loading...</div>;
+    if (!project) return <div>{t('common.loading')}</div>;
+
+    const getFieldLabel = (field: FieldType) => {
+        switch (field) {
+            case 'targetAudience': return t('worldSettings.targetAudience');
+            case 'artStyle': return t('worldSettings.artStyle');
+            case 'summary': return t('worldSettings.summary');
+            default: return '';
+        }
+    };
 
     return (
         <div style={{ padding: 24, height: '100%', overflow: 'hidden' }}>
             <Row gutter={24} style={{ height: '100%' }}>
                 <Col span={16} style={{ height: '100%', overflowY: 'auto' }}>
-                    <Title level={3}>World Settings</Title>
+                    <Title level={3}>{t('worldSettings.title')}</Title>
                     <div style={{ marginBottom: 24 }}>
-                        <Title level={5}>Target Audience</Title>
+                        <Title level={5}>{t('worldSettings.targetAudience')}</Title>
                         <TextArea
                             rows={4}
                             value={project.wordSettings.targetAudience}
                             onFocus={() => setActiveField('targetAudience')}
                             onChange={e => handleChange('targetAudience', e.target.value)}
-                            placeholder="Who is this story for?"
+                            placeholder={t('worldSettings.targetAudiencePlaceholder')}
                         />
                     </div>
                     <div style={{ marginBottom: 24 }}>
-                        <Title level={5}>Art Style</Title>
+                        <Title level={5}>{t('worldSettings.artStyle')}</Title>
                         <TextArea
                             rows={4}
                             value={project.wordSettings.artStyle}
                             onFocus={() => setActiveField('artStyle')}
                             onChange={e => handleChange('artStyle', e.target.value)}
-                            placeholder="Visual style description..."
+                            placeholder={t('worldSettings.artStylePlaceholder')}
                         />
                     </div>
                     <div style={{ marginBottom: 24 }}>
-                        <Title level={5}>Story Summary</Title>
+                        <Title level={5}>{t('worldSettings.summary')}</Title>
                         <TextArea
                             rows={8}
                             value={project.wordSettings.summary}
                             onFocus={() => setActiveField('summary')}
                             onChange={e => handleChange('summary', e.target.value)}
-                            placeholder="Genre, time period, and brief synopsis..."
+                            placeholder={t('worldSettings.summaryPlaceholder')}
                         />
                     </div>
                 </Col>
                 <Col span={8} style={{ height: '100%' }}>
                     <Card
-                        title={`Examples: ${activeField.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`}
+                        title={`${t('worldSettings.examplesTitle')} ${getFieldLabel(activeField)}`}
                         style={{ height: 'calc(100% - 20px)', overflowY: 'auto' }}
-                        bodyStyle={{ padding: 0 }}
+                        styles={{ body: { padding: 0 } }}
                     >
                         <List
-                            dataSource={EXAMPLES[activeField]}
+                            dataSource={EXAMPLES[activeField] || []}
                             renderItem={item => (
                                 <List.Item style={{ padding: '8px 16px', cursor: 'pointer' }} onClick={() => handleExampleClick(item)}>
                                     <div style={{ width: '100%' }}>{item}</div>

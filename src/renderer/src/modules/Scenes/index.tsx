@@ -133,9 +133,9 @@ export default function ScenesPage() {
             <div
                 ref={sidebarRef}
                 style={{
-                    width: collapsed ? 0 : siderWidth,
-                    minWidth: collapsed ? 0 : MIN_SIDER_WIDTH,
-                    maxWidth: collapsed ? 0 : MAX_SIDER_WIDTH,
+                    width: collapsed ? 32 : siderWidth,
+                    minWidth: collapsed ? 32 : MIN_SIDER_WIDTH,
+                    maxWidth: collapsed ? 32 : MAX_SIDER_WIDTH,
                     transition: isResizing ? 'none' : 'width 0.2s',
                     background: '#1f1f1f',
                     borderRight: '1px solid #333',
@@ -145,7 +145,7 @@ export default function ScenesPage() {
                     flexDirection: 'column'
                 }}
             >
-                <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ flex: 1, overflow: 'hidden', display: collapsed ? 'none' : 'block' }}>
                     <ChapterList
                         chapters={project.chapters}
                         selectedChapterId={selectedChapterId}
@@ -155,6 +155,23 @@ export default function ScenesPage() {
                         onUpdateChapters={updateChapters}
                         onDeleteScene={handleDeleteScene}
                     />
+                </div>
+
+                {/* Collapse Trigger at bottom */}
+                <div style={{
+                    height: 32,
+                    background: '#141414',
+                    borderTop: '1px solid #333',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    zIndex: 20,
+                    flexShrink: 0
+                }}
+                    onClick={() => setCollapsed(!collapsed)}
+                >
+                    {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 </div>
 
                 {/* Drag Handle */}
@@ -173,22 +190,6 @@ export default function ScenesPage() {
                         }}
                     />
                 )}
-            </div>
-
-            {/* Collapse Trigger (Floating or Fixed) */}
-            <div style={{
-                width: 24,
-                background: '#141414',
-                borderRight: '1px solid #333',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                zIndex: 20
-            }}
-                onClick={() => setCollapsed(!collapsed)}
-            >
-                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             </div>
 
             <Content style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', flex: 1 }}>

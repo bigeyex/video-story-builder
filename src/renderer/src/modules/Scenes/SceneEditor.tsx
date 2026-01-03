@@ -27,7 +27,7 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
     if (!scene) {
         return (
             <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>
-                Select a scene to edit
+                {t('scenes.noSceneSelected')}
             </div>
         );
     }
@@ -36,18 +36,19 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
         try {
             const settings = await window.api.getSettings();
             if (!settings.volcEngineApiKey) {
-                return message.error(t('common.error', 'Please configure API Key first'));
+                message.error(t('common.error', 'Please configure API Key first'));
+                return;
             }
-            message.loading({ content: 'Generating...', key: 'gen' });
+            message.loading({ content: t('scenes.generating'), key: 'gen' });
             const result = await window.api.generateAI('scene-outline', {
                 title: scene?.title || '',
                 summary: 'Context from project settings...',
                 characters: 'Main characters'
             });
             onUpdate({ outline: result.outline || result });
-            message.success({ content: 'Generated!', key: 'gen' });
+            message.success({ content: t('scenes.generated'), key: 'gen' });
         } catch (e) {
-            message.error({ content: 'Failed: ' + e, key: 'gen' });
+            message.error({ content: t('characters.failed') + e, key: 'gen' });
         }
     };
 
@@ -65,7 +66,7 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
                     <div style={{ flex: 1, marginRight: 24 }}>
                         <Form.Item name="title" style={{ marginBottom: 0 }}>
                             <Input
-                                placeholder="Scene Title"
+                                placeholder={t('scenes.newScene')}
                                 bordered={false}
                                 style={{ fontSize: '20px', fontWeight: 'bold', padding: 0 }}
                             />
@@ -86,7 +87,7 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
                         <Form.Item name="outline" style={{ marginBottom: 0 }}>
                             <TextArea
                                 autoSize={{ minRows: 4, maxRows: 12 }}
-                                placeholder={t('scenes.outlinePlaceholder', 'Describe the sequence of events...')}
+                                placeholder={t('scenes.outlinePlaceholder')}
                                 style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />
                         </Form.Item>
@@ -96,7 +97,7 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
                         <Form.Item name="conflict" style={{ marginBottom: 0 }}>
                             <TextArea
                                 autoSize={{ minRows: 4, maxRows: 12 }}
-                                placeholder={t('scenes.conflictPlaceholder', 'What is the central conflict or tension?')}
+                                placeholder={t('scenes.conflictPlaceholder')}
                                 style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />
                         </Form.Item>

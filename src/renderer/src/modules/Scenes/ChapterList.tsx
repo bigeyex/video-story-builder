@@ -1,4 +1,4 @@
-import { List, Button, Input, Modal, message, Typography } from 'antd';
+import { List, Button, Input, Modal, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +30,7 @@ export default function ChapterList({
     const handleAddChapter = () => {
         const newChapter: Chapter = {
             id: `chap-${Date.now()}`,
-            title: t('scenes.newChapter', 'New Chapter'),
+            title: `${t('scenes.chapterNamePrefix')}${chapters.length + 1}`,
             scenes: []
         };
         onUpdateChapters([...chapters, newChapter]);
@@ -70,7 +70,7 @@ export default function ChapterList({
 
         const newScene: Scene = {
             id: `scene-${Date.now()}`,
-            title: t('scenes.newScene', 'New Scene'),
+            title: `${t('scenes.sceneNamePrefix')}${chapters[chapterIndex].scenes.length + 1}`,
             outline: '',
             conflict: '',
             storyboard: []
@@ -117,6 +117,7 @@ export default function ChapterList({
                 renderItem={chapter => (
                     <div key={chapter.id} style={{ marginBottom: 8 }}>
                         <div
+                            className="chapter-item"
                             style={{
                                 padding: '4px 8px',
                                 background: selectedChapterId === chapter.id ? '#1677ff' : '#2a2a2a',
@@ -141,7 +142,7 @@ export default function ChapterList({
                             ) : (
                                 <span style={{ color: 'white', fontWeight: 'bold' }}>{chapter.title}</span>
                             )}
-                            <div>
+                            <div className="action-buttons">
                                 <Button type="text" size="small" icon={<PlusOutlined style={{ color: 'white' }} />} onClick={(e) => handleAddScene(chapter.id, e)} />
                                 <Button type="text" size="small" icon={<EditOutlined style={{ color: 'white' }} />} onClick={(e) => startEdit(chapter.id, chapter.title, e)} />
                                 <Button type="text" size="small" icon={<DeleteOutlined style={{ color: '#ff4d4f' }} />} onClick={(e) => handleDeleteChapter(chapter.id, e)} />
@@ -153,12 +154,16 @@ export default function ChapterList({
                             {chapter.scenes.map(scene => (
                                 <div
                                     key={scene.id}
+                                    className="scene-item"
                                     style={{
                                         padding: '2px 8px',
                                         cursor: 'pointer',
                                         color: selectedSceneId === scene.id ? '#1677ff' : '#ccc',
                                         background: selectedSceneId === scene.id ? 'rgba(22, 119, 255, 0.1)' : 'transparent',
-                                        borderLeft: selectedSceneId === scene.id ? '2px solid #1677ff' : 'none'
+                                        borderLeft: selectedSceneId === scene.id ? '2px solid #1677ff' : 'none',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
                                     }}
                                     onClick={(e) => { e.stopPropagation(); onSelectScene(chapter.id, scene.id); }}
                                 >
@@ -172,13 +177,13 @@ export default function ChapterList({
                                             size="small"
                                         />
                                     ) : (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <>
                                             <span>{scene.title}</span>
-                                            <div style={{ display: 'flex' }}>
+                                            <div className="action-buttons">
                                                 <Button type="text" size="small" icon={<EditOutlined style={{ color: '#aaa' }} />} onClick={(e) => startEdit(scene.id, scene.title, e)} />
                                                 <Button type="text" size="small" icon={<DeleteOutlined style={{ color: '#ff4d4f' }} />} onClick={(e) => handleDeleteScene(chapter.id, scene.id, e)} />
                                             </div>
-                                        </div>
+                                        </>
                                     )}
                                 </div>
                             ))}
@@ -186,6 +191,15 @@ export default function ChapterList({
                     </div>
                 )}
             />
+            <style>{`
+                .action-buttons {
+                    display: none;
+                }
+                .chapter-item:hover .action-buttons,
+                .scene-item:hover .action-buttons {
+                    display: flex;
+                }
+            `}</style>
         </div>
     );
 }
