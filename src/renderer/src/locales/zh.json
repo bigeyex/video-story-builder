@@ -204,6 +204,7 @@
     "generatingDescription": "正在生成描述...",
     "descriptionGenerated": "描述已生成！",
     "generatingImage": "正在生成图片...",
-    "imageGenerated": "图片已生成！"
+    "imageGenerated": "图片已生成！",
+    "noShots": "暂无分镜（点击添加镜头按钮或点击自动生成）"
   }
 }

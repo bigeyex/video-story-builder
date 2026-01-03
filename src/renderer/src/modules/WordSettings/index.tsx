@@ -1,4 +1,4 @@
-import { Typography, Row, Col, Input, Card, List, message } from 'antd';
+import { Typography, Row, Col, Input, Card, message } from 'antd';
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -116,14 +116,17 @@ export default function WordSettingsPage() {
                         style={{ height: 'calc(100% - 20px)', overflowY: 'auto' }}
                         styles={{ body: { padding: 0 } }}
                     >
-                        <List
-                            dataSource={EXAMPLES[activeField] || []}
-                            renderItem={item => (
-                                <List.Item style={{ padding: '8px 16px', cursor: 'pointer' }} onClick={() => handleExampleClick(item)}>
+                        <div style={{ padding: '0 16px' }}>
+                            {(EXAMPLES[activeField] || []).map((item, idx) => (
+                                <div
+                                    key={idx}
+                                    style={{ padding: '8px 0', cursor: 'pointer', borderBottom: '1px solid #333' }}
+                                    onClick={() => handleExampleClick(item)}
+                                >
                                     <div style={{ width: '100%' }}>{item}</div>
-                                </List.Item>
-                            )}
-                        />
+                                </div>
+                            ))}
+                        </div>
                     </Card>
                 </Col>
             </Row>

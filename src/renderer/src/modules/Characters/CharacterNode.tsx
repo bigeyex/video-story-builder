@@ -8,6 +8,12 @@ const { Text } = Typography;
 export default function CharacterNode({ data }: { data: { label: string; avatar?: string; selected?: boolean } }) {
     const [hovered, setHovered] = useState(false);
 
+    const getImageUrl = (url?: string) => {
+        if (!url) return undefined;
+        if (url.startsWith('http') || url.startsWith('story-asset://')) return url;
+        return `story-asset://${url}`;
+    };
+
     return (
         <div
             onMouseEnter={() => setHovered(true)}
@@ -25,12 +31,7 @@ export default function CharacterNode({ data }: { data: { label: string; avatar?
                 // Ensure draggable. Default ReactFlow behavior works on this div.
             }}
         >
-            {/* Target Handle - Covers the whole node for easy dropping. 
-                We move it to the back? No, it must capture mouse events for "drop".
-                But dragging the node requires clicking on something NOT a handle?
-                However, we set 'dragHandle' prop on the Node to '.node-drag-target'.
-                React Flow listens to mousedown on that selector to initiate Drag.
-            */}
+            {/* Target Handle - Covers the whole node for easy dropping. */}
             <Handle
                 type="target"
                 position={Position.Top}
@@ -81,7 +82,7 @@ export default function CharacterNode({ data }: { data: { label: string; avatar?
             <div className="node-drag-target" style={{ display: 'flex', alignItems: 'center', pointerEvents: 'all', width: '100%', zIndex: 5, position: 'relative' }}>
                 <Avatar
                     size={48}
-                    src={data.avatar}
+                    src={getImageUrl(data.avatar)}
                     icon={<UserOutlined />}
                     style={{ marginRight: 10, border: '1px solid #fff', flexShrink: 0 }}
                 />

@@ -1,4 +1,4 @@
-import { List, Button, Input, Modal, Typography } from 'antd';
+import { Button, Input, Modal, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -112,9 +112,8 @@ export default function ChapterList({
                 <Button type="primary" size="small" icon={<PlusOutlined />} onClick={handleAddChapter} />
             </div>
 
-            <List
-                dataSource={chapters}
-                renderItem={chapter => (
+            <div>
+                {chapters.map(chapter => (
                     <div key={chapter.id} style={{ marginBottom: 8 }}>
                         <div
                             className="chapter-item"
@@ -189,8 +188,8 @@ export default function ChapterList({
                             ))}
                         </div>
                     </div>
-                )}
-            />
+                ))}
+            </div>
             <style>{`
                 .action-buttons {
                     display: none;

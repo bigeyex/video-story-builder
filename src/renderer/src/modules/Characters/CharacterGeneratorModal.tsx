@@ -1,4 +1,4 @@
-import { Modal, Button, message, List, Avatar, Space } from 'antd';
+import { Modal, Button, message, Avatar, Space } from 'antd';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RobotOutlined, CheckOutlined } from '@ant-design/icons';
@@ -101,35 +101,31 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
                     </div>
                 )}
 
-                <List
-                    dataSource={candidates}
-                    renderItem={(item) => (
-                        <List.Item
-                            actions={[
-                                <Button
-                                    type="link"
-                                    disabled={addedIds.has(item.id)}
-                                    icon={addedIds.has(item.id) ? <CheckOutlined /> : null}
-                                    onClick={() => handleAdd(item)}
-                                >
-                                    {addedIds.has(item.id) ? '' : t('characters.generator.select')}
-                                </Button>
-                            ]}
-                        >
-                            <List.Item.Meta
-                                avatar={<Avatar size={64} shape="square" icon={<RobotOutlined />} />}
-                                title={item.name}
-                                description={
-                                    <Space direction="vertical" style={{ width: '100%' }}>
-                                        <div><strong>{t('characters.background')}:</strong> {item.background}</div>
-                                        <div><strong>{t('characters.personality')}:</strong> {item.personality}</div>
-                                        <div><strong>{t('characters.appearance')}:</strong> {item.appearance}</div>
-                                    </Space>
-                                }
-                            />
-                        </List.Item>
-                    )}
-                />
+                <div>
+                    {candidates.map((item) => (
+                        <div key={item.id} style={{ display: 'flex', padding: '16px 0', borderBottom: '1px solid #333', alignItems: 'flex-start' }}>
+                            <Avatar size={64} shape="square" icon={<RobotOutlined />} style={{ flexShrink: 0, marginRight: 16 }} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{item.name}</div>
+                                    <Button
+                                        type="link"
+                                        disabled={addedIds.has(item.id)}
+                                        icon={addedIds.has(item.id) ? <CheckOutlined /> : null}
+                                        onClick={() => handleAdd(item)}
+                                    >
+                                        {addedIds.has(item.id) ? '' : t('characters.generator.select')}
+                                    </Button>
+                                </div>
+                                <Space orientation="vertical" style={{ width: '100%' }}>
+                                    <div><strong>{t('characters.background')}:</strong> {item.background}</div>
+                                    <div><strong>{t('characters.personality')}:</strong> {item.personality}</div>
+                                    <div><strong>{t('characters.appearance')}:</strong> {item.appearance}</div>
+                                </Space>
+                            </div>
+                        </div>
+                    ))}
+                </div>
 
                 {loading && (
                     <div style={{

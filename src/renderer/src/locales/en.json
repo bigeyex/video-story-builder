@@ -204,6 +204,7 @@
     "generatingDescription": "Generating description...",
     "descriptionGenerated": "Description generated!",
     "generatingImage": "Generating image...",
-    "imageGenerated": "Image generated!"
+    "imageGenerated": "Image generated!",
+    "noShots": "No shots yet (Click Add Shot button to add or use Auto-Generate)"
   }
 }

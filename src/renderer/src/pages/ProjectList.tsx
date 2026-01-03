@@ -76,7 +76,7 @@ export default function ProjectList() {
     return (
         <Layout style={{ height: '100vh', padding: '24px' }}>
             <Content style={{ maxWidth: 800, margin: '0 auto', width: '100%' }}>
-                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                <Space orientation="vertical" size="large" style={{ width: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Title level={2} style={{ margin: 0 }}>{t('projects.title')}</Title>
                         <div style={{ display: 'flex', gap: 8 }}>

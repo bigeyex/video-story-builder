@@ -25,13 +25,9 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
         onUpdate(changedValues);
     };
 
-    if (!scene) {
-        return (
-            <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>
-                {t('scenes.noSceneSelected')}
-            </div>
-        );
-    }
+    // If no scene, we still want to render the Form component (hidden or empty) to avoid useForm warning,
+    // or just handle the UI inside the Form.
+    // However, the cleanest is to always render the Form if the component is mounted.
 
     const maskJson = (text: string) => {
         return text.replace(/[{}["\]:,\n]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -93,51 +89,59 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
             <Form
                 form={form}
                 layout="vertical"
-                initialValues={scene}
+                initialValues={scene || {}}
                 onValuesChange={handleValuesChange}
                 style={{ display: 'flex', flexDirection: 'column' }}
             >
-                {/* Header: Title and Toolbar */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div style={{ flex: 1, marginRight: 24 }}>
-                        <Form.Item name="title" style={{ marginBottom: 0 }}>
-                            <Input
-                                placeholder={t('scenes.newScene')}
-                                bordered={false}
-                                style={{ fontSize: '20px', fontWeight: 'bold', padding: 0 }}
-                            />
-                        </Form.Item>
+                {!scene ? (
+                    <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>
+                        {t('scenes.noSceneSelected')}
                     </div>
-                    <div>
-                        <Button type="primary" onClick={handleGenerateOutline} size="small">
-                            {t('scenes.generateOutline')}
-                        </Button>
-                    </div>
-                </div>
+                ) : (
+                    <>
+                        {/* Header: Title and Toolbar */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <div style={{ flex: 1, marginRight: 24 }}>
+                                <Form.Item name="title" style={{ marginBottom: 0 }}>
+                                    <Input
+                                        placeholder={t('scenes.newScene')}
+                                        bordered={false}
+                                        style={{ fontSize: '20px', fontWeight: 'bold', padding: 0 }}
+                                    />
+                                </Form.Item>
+                            </div>
+                            <div>
+                                <Button type="primary" onClick={handleGenerateOutline} size="small">
+                                    {t('scenes.generateOutline')}
+                                </Button>
+                            </div>
+                        </div>
 
-                {/* Content: Two Columns */}
-                <div style={{ display: 'flex', gap: 24 }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.outline').toUpperCase()}</div>
-                        <Form.Item name="outline" style={{ marginBottom: 0 }}>
-                            <TextArea
-                                autoSize={{ minRows: 4, maxRows: 4 }}
-                                placeholder={t('scenes.outlinePlaceholder')}
-                                style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
-                            />
-                        </Form.Item>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.conflict').toUpperCase()}</div>
-                        <Form.Item name="conflict" style={{ marginBottom: 0 }}>
-                            <TextArea
-                                autoSize={{ minRows: 4, maxRows: 4 }}
-                                placeholder={t('scenes.conflictPlaceholder')}
-                                style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
-                            />
-                        </Form.Item>
-                    </div>
-                </div>
+                        {/* Content: Two Columns */}
+                        <div style={{ display: 'flex', gap: 24 }}>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.outline').toUpperCase()}</div>
+                                <Form.Item name="outline" style={{ marginBottom: 0 }}>
+                                    <TextArea
+                                        autoSize={{ minRows: 4, maxRows: 4 }}
+                                        placeholder={t('scenes.outlinePlaceholder')}
+                                        style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
+                                    />
+                                </Form.Item>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.conflict').toUpperCase()}</div>
+                                <Form.Item name="conflict" style={{ marginBottom: 0 }}>
+                                    <TextArea
+                                        autoSize={{ minRows: 4, maxRows: 4 }}
+                                        placeholder={t('scenes.conflictPlaceholder')}
+                                        style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
+                                    />
+                                </Form.Item>
+                            </div>
+                        </div>
+                    </>
+                )}
             </Form>
         </div>
     );

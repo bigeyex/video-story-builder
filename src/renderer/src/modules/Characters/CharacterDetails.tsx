@@ -26,19 +26,15 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
         }
     }, [character, form]);
 
-    if (!character) {
-        return (
-            <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>
-                {t('characters.emptySelection')}
-            </div>
-        );
-    }
+    // We don't return early here to keep the Form instance connected.
+    // UI handling will be done inside the return.
 
     const handleValuesChange = (changedValues: any) => {
-        onUpdate(character.id, changedValues);
+        if (character) onUpdate(character.id, changedValues);
     };
 
     const handleGenerateAvatar = async () => {
+        if (!character) return;
         try {
             message.loading({ content: t('characters.generatingAvatar'), key: 'avatar', duration: 0 });
             const prompt = `Character avatar for ${character.name}: ${character.appearance}, ${character.personality}. Art Style: ${project.wordSettings.artStyle || 'Cinematic'}.`;
@@ -53,6 +49,7 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
 
     const handleUpload = async (file: File) => {
         try {
+            if (!character) return;
             // @ts-ignore - access path if available (Electron)
             const filePath = file.path;
             if (!filePath) {
@@ -76,39 +73,49 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
 
     return (
         <div style={{ padding: 24, height: '100%', overflowY: 'auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                <Avatar size={100} src={getImageUrl(character.avatar)} icon={<UserOutlined />} />
-                <div style={{ marginTop: 16 }}>
-                    <Upload beforeUpload={handleUpload} showUploadList={false}>
-                        <Button icon={<UploadOutlined />}>{t('characters.uploadAvatar')}</Button>
-                    </Upload>
-                    <Button icon={<UserOutlined />} style={{ marginLeft: 8 }} onClick={handleGenerateAvatar}>{t('characters.generateAvatar')}</Button>
+            {!character ? (
+                <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>
+                    {t('characters.emptySelection')}
                 </div>
-            </div>
+            ) : (
+                <>
+                    <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                        <Avatar size={100} src={getImageUrl(character.avatar)} icon={<UserOutlined />} />
+                        <div style={{ marginTop: 16 }}>
+                            <Upload beforeUpload={handleUpload} showUploadList={false}>
+                                <Button icon={<UploadOutlined />}>{t('characters.uploadAvatar')}</Button>
+                            </Upload>
+                            <Button icon={<UserOutlined />} style={{ marginLeft: 8 }} onClick={handleGenerateAvatar}>{t('characters.generateAvatar')}</Button>
+                        </div>
+                    </div>
 
-            <Form
-                form={form}
-                layout="vertical"
-                initialValues={character}
-                onValuesChange={handleValuesChange}
-            >
-                <Form.Item name="name" label={t('characters.name')}>
-                    <Input />
-                </Form.Item>
-                <Form.Item name="background" label={t('characters.background')}>
-                    <TextArea rows={4} />
-                </Form.Item>
-                <Form.Item name="personality" label={t('characters.personality')}>
-                    <TextArea rows={3} />
-                </Form.Item>
-                <Form.Item name="appearance" label={t('characters.appearance')}>
-                    <TextArea rows={3} />
-                </Form.Item>
-            </Form>
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        initialValues={character}
+                        onValuesChange={handleValuesChange}
+                    >
+                        <Form.Item name="name" label={t('characters.name')}>
+                            <Input />
+                        </Form.Item>
+                        <Form.Item name="background" label={t('characters.background')}>
+                            <TextArea rows={4} />
+                        </Form.Item>
+                        <Form.Item name="personality" label={t('characters.personality')}>
+                            <TextArea rows={3} />
+                        </Form.Item>
+                        <Form.Item name="appearance" label={t('characters.appearance')}>
+                            <TextArea rows={3} />
+                        </Form.Item>
+                    </Form>
 
-            <div style={{ marginTop: 24, borderTop: '1px solid #444', paddingTop: 24 }}>
-                <Button danger block onClick={() => onDelete(character.id)}>{t('characters.deleteCharacter')}</Button>
-            </div>
+                    <div style={{ marginTop: 24, borderTop: '1px solid #444', paddingTop: 24 }}>
+                        <Button danger block onClick={() => character && onDelete(character.id)}>{t('characters.deleteCharacter')}</Button>
+                    </div>
+                </>
+            )}
+            {/* Hidden form to keep instance connected if no character */}
+            {!character && <div style={{ display: 'none' }}><Form form={form} /></div>}
         </div>
     );
 }
