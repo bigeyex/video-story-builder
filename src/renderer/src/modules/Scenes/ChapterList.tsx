@@ -1,6 +1,7 @@
 import { List, Button, Input, Modal, message, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Chapter, Scene } from '../../../../shared/types';
 
 interface InternalProps {
@@ -22,13 +23,14 @@ export default function ChapterList({
     onUpdateChapters,
     onDeleteScene
 }: InternalProps) {
+    const { t } = useTranslation();
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
 
     const handleAddChapter = () => {
         const newChapter: Chapter = {
             id: `chap-${Date.now()}`,
-            title: 'New Chapter',
+            title: t('scenes.newChapter', 'New Chapter'),
             scenes: []
         };
         onUpdateChapters([...chapters, newChapter]);
@@ -38,8 +40,10 @@ export default function ChapterList({
     const handleDeleteChapter = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         Modal.confirm({
-            title: 'Delete Chapter?',
-            content: 'This will delete all scenes in this chapter.',
+            title: t('scenes.deleteChapterTitle'),
+            content: t('scenes.deleteChapterContent'),
+            okText: t('common.yes'),
+            cancelText: t('common.no'),
             onOk: () => {
                 const updated = chapters.filter(c => c.id !== id);
                 onUpdateChapters(updated);
@@ -51,8 +55,10 @@ export default function ChapterList({
     const handleDeleteScene = (chapterId: string, sceneId: string, e: React.MouseEvent) => {
         e.stopPropagation();
         Modal.confirm({
-            title: 'Delete Scene?',
-            content: 'Are you sure you want to delete this scene?',
+            title: t('scenes.deleteSceneTitle'),
+            content: t('scenes.deleteSceneContent'),
+            okText: t('common.yes'),
+            cancelText: t('common.no'),
             onOk: () => onDeleteScene(chapterId, sceneId)
         });
     };
@@ -64,7 +70,7 @@ export default function ChapterList({
 
         const newScene: Scene = {
             id: `scene-${Date.now()}`,
-            title: 'New Scene',
+            title: t('scenes.newScene', 'New Scene'),
             outline: '',
             conflict: '',
             storyboard: []
@@ -102,7 +108,7 @@ export default function ChapterList({
     return (
         <div style={{ padding: 10, height: '100%', overflowY: 'auto', background: '#1f1f1f' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <Typography.Text strong style={{ color: 'white' }}>Chapters</Typography.Text>
+                <Typography.Text strong style={{ color: 'white' }}>{t('scenes.chapters')}</Typography.Text>
                 <Button type="primary" size="small" icon={<PlusOutlined />} onClick={handleAddChapter} />
             </div>
 

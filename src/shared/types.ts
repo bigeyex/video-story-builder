@@ -49,6 +49,7 @@ export interface Chapter {
 export interface GlobalSettings {
   volcEngineApiKey: string;
   volcEngineModel: string;
+  language?: string;
 }
 
 export interface Project extends ProjectMetadata {
@@ -73,4 +74,5 @@ export interface API {
   saveSettings: (settings: GlobalSettings) => Promise<boolean>;
   generateAI: (type: string, params: any) => Promise<any>;
   generateImage: (prompt: string) => Promise<string>;
+  openProjectsFolder: () => Promise<void>;
 }

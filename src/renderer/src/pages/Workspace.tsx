@@ -2,11 +2,13 @@ import { Layout, Menu, Button, Tooltip } from 'antd';
 import { SettingOutlined, TeamOutlined, VideoCameraOutlined, BookOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import GlobalSettingsModal from '../components/GlobalSettingsModal';
 
 const { Sider } = Layout;
 
 export default function Workspace() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const { projectId } = useParams();
@@ -18,9 +20,9 @@ export default function Workspace() {
     const selectedKey = currentPath || 'settings';
 
     const menuItems = [
-        { key: 'settings', icon: <BookOutlined />, label: 'World Settings' },
-        { key: 'characters', icon: <TeamOutlined />, label: 'Characters' },
-        { key: 'scenes', icon: <VideoCameraOutlined />, label: 'Scenes' },
+        { key: 'settings', icon: <BookOutlined />, label: t('sidebar.settings') },
+        { key: 'characters', icon: <TeamOutlined />, label: t('sidebar.characters') },
+        { key: 'scenes', icon: <VideoCameraOutlined />, label: t('sidebar.scenes') },
     ];
 
     const handleMenuClick = ({ key }: { key: string }) => {
@@ -38,7 +40,7 @@ export default function Workspace() {
             >
                 {/* Back / Home Button */}
                 <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <Tooltip title="Back to Projects">
+                    <Tooltip title={t('sidebar.projects')}>
                         <Button
                             type="text"
                             icon={<ArrowLeftOutlined />}
@@ -59,7 +61,7 @@ export default function Workspace() {
 
                 {/* Global Settings (replacing collapse trigger area) */}
                 <div style={{ position: 'absolute', bottom: 0, width: '100%', height: '48px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#001529' }} onClick={() => setSettingsOpen(true)}>
-                    <Tooltip title="Global Settings">
+                    <Tooltip title={t('settings.title')}>
                         <SettingOutlined style={{ color: 'white', fontSize: '18px' }} />
                     </Tooltip>
                 </div>

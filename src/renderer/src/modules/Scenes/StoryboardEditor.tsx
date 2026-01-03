@@ -8,6 +8,7 @@ import {
 import { Scene, StoryboardShot } from '../../../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const { TextArea } = Input;
 
@@ -17,11 +18,12 @@ interface InternalProps {
 }
 
 export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
+    const { t } = useTranslation();
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [clipboard, setClipboard] = useState<StoryboardShot[]>([]);
 
-    if (!scene) return <div>Select a scene</div>;
+    if (!scene) return <div>{t('common.selectScene', 'Select a scene')}</div>;
 
     const shots = scene.storyboard || [];
 
@@ -77,7 +79,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
     const handleCopy = (ids: string[]) => {
         const shotsToCopy = shots.filter(s => ids.includes(s.id));
         setClipboard(shotsToCopy.map(s => ({ ...s, id: uuidv4() }))); // New IDs on copy
-        message.success(`Copied ${shotsToCopy.length} shots`);
+        message.success(`${t('storyboard.copy')} ${shotsToCopy.length}`);
     };
 
     const handleCut = (ids: string[]) => {
@@ -92,7 +94,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
         const newShots = [...shots];
         newShots.splice(index, 0, ...toPaste);
         updateShots(newShots);
-        message.success(`Pasted ${toPaste.length} shots`);
+        message.success(`${t('storyboard.pasteUp')} ${toPaste.length}`);
     };
 
     const handleFieldChange = (id: string, field: keyof StoryboardShot, value: any) => {
@@ -102,9 +104,9 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
     const handleAutoGenerate = async () => {
         try {
             const settings = await window.api.getSettings();
-            if (!settings.volcEngineApiKey) return message.error('No API Key');
+            if (!settings.volcEngineApiKey) return message.error(t('common.error', 'No API Key'));
 
-            message.loading({ content: 'Generating shots...', key: 'gen' });
+            message.loading({ content: t('storyboard.generatingShots'), key: 'gen' });
             const result = await window.api.generateAI('scene-storyboard', {
                 title: scene.title,
                 outline: scene.outline,
@@ -124,12 +126,12 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                 // IMPORTANT: Use callback or fresh props here if possible, but for now we use 'shots' from closure.
                 // Ideally we'd sync this better, but let's stick to the current pattern.
                 updateShots([...shots, ...generatedShots]);
-                message.success({ content: 'Generated!', key: 'gen' });
+                message.success({ content: t('storyboard.generated'), key: 'gen' });
             } else {
-                message.warning({ content: 'AI returned no shots', key: 'gen' });
+                message.warning({ content: t('storyboard.aiNoShots'), key: 'gen' });
             }
         } catch (e) {
-            message.error({ content: 'Failed: ' + e, key: 'gen' });
+            message.error({ content: t('common.failed') + ': ' + e, key: 'gen' });
         }
     };
 
@@ -139,16 +141,16 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
 
     const getMenu = (index: number, shot: StoryboardShot): MenuProps => ({
         items: [
-            { key: 'insert-up', label: 'Insert Up', icon: <ArrowUpOutlined />, onClick: () => handleAddShot(index) },
-            { key: 'insert-down', label: 'Insert Down', icon: <ArrowDownOutlined />, onClick: () => handleAddShot(index + 1) },
+            { key: 'insert-up', label: t('storyboard.insertUp'), icon: <ArrowUpOutlined />, onClick: () => handleAddShot(index) },
+            { key: 'insert-down', label: t('storyboard.insertDown'), icon: <ArrowDownOutlined />, onClick: () => handleAddShot(index + 1) },
             { type: 'divider' },
-            { key: 'cut', label: 'Cut', icon: <ScissorOutlined />, onClick: () => handleCut([shot.id]) },
-            { key: 'copy', label: 'Copy', icon: <CopyOutlined />, onClick: () => handleCopy([shot.id]) },
-            { key: 'paste-up', label: 'Paste Up', icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index) },
-            { key: 'paste-down', label: 'Paste Down', icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index + 1) },
+            { key: 'cut', label: t('storyboard.cut'), icon: <ScissorOutlined />, onClick: () => handleCut([shot.id]) },
+            { key: 'copy', label: t('storyboard.copy'), icon: <CopyOutlined />, onClick: () => handleCopy([shot.id]) },
+            { key: 'paste-up', label: t('storyboard.pasteUp'), icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index) },
+            { key: 'paste-down', label: t('storyboard.pasteDown'), icon: <SnippetsOutlined />, disabled: clipboard.length === 0, onClick: () => handlePaste(index + 1) },
             { type: 'divider' },
             {
-                key: 'move-up', label: 'Move Up', icon: <ArrowUpOutlined />, disabled: index === 0, onClick: () => {
+                key: 'move-up', label: t('storyboard.moveUp'), icon: <ArrowUpOutlined />, disabled: index === 0, onClick: () => {
                     // simple single move
                     const newShots = [...shots];
                     [newShots[index], newShots[index - 1]] = [newShots[index - 1], newShots[index]];
@@ -156,21 +158,21 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                 }
             },
             {
-                key: 'move-down', label: 'Move Down', icon: <ArrowDownOutlined />, disabled: index === shots.length - 1, onClick: () => {
+                key: 'move-down', label: t('storyboard.moveDown'), icon: <ArrowDownOutlined />, disabled: index === shots.length - 1, onClick: () => {
                     const newShots = [...shots];
                     [newShots[index], newShots[index + 1]] = [newShots[index + 1], newShots[index]];
                     updateShots(newShots);
                 }
             },
             { type: 'divider' },
-            { key: 'delete', label: 'Delete', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete([shot.id]) },
+            { key: 'delete', label: t('storyboard.delete'), icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete([shot.id]) },
         ]
     });
 
     const getGlobalMenu = (): MenuProps => ({
         items: [
-            { key: 'cut-sel', label: `Cut Selected (${selectedIds.size})`, disabled: selectedIds.size === 0, onClick: () => handleCut(Array.from(selectedIds)) },
-            { key: 'copy-sel', label: `Copy Selected (${selectedIds.size})`, disabled: selectedIds.size === 0, onClick: () => handleCopy(Array.from(selectedIds)) },
+            { key: 'cut-sel', label: `${t('storyboard.cut')} (${selectedIds.size})`, disabled: selectedIds.size === 0, onClick: () => handleCut(Array.from(selectedIds)) },
+            { key: 'copy-sel', label: `${t('storyboard.copy')} (${selectedIds.size})`, disabled: selectedIds.size === 0, onClick: () => handleCopy(Array.from(selectedIds)) },
         ]
     });
 
@@ -179,19 +181,19 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
             {/* Toolbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                 <Space>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAddShot()}>Add Shot</Button>
-                    <Button icon={<VideoCameraOutlined />} onClick={handleAutoGenerate}>Auto-Generate</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAddShot()}>{t('storyboard.addShot')}</Button>
+                    <Button icon={<VideoCameraOutlined />} onClick={handleAutoGenerate}>{t('storyboard.autoGenerate')}</Button>
                     {selectedIds.size > 0 && (
                         <Dropdown menu={getGlobalMenu()}>
-                            <Button>Selection Actions ({selectedIds.size})</Button>
+                            <Button>{t('storyboard.selectionActions')} ({selectedIds.size})</Button>
                         </Dropdown>
                     )}
                 </Space>
                 <Space>
-                    <span>Screen Format:</span>
+                    <span>{t('storyboard.screenFormat')}:</span>
                     <Radio.Group value={aspectRatio} onChange={e => setAspectRatio(e.target.value)} buttonStyle="solid">
-                        <Radio.Button value="16:9">Desktop (16:9)</Radio.Button>
-                        <Radio.Button value="9:16">Mobile (9:16)</Radio.Button>
+                        <Radio.Button value="16:9">{t('storyboard.desktop')}</Radio.Button>
+                        <Radio.Button value="9:16">{t('storyboard.mobile')}</Radio.Button>
                     </Radio.Group>
                 </Space>
             </div>
@@ -205,13 +207,13 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                         onChange={e => selectAll(e.target.checked)}
                     />
                 </div>
-                <div style={{ width: IMG_WIDTH + 16 }}>VISUAL</div>
+                <div style={{ width: IMG_WIDTH + 16 }}>{t('storyboard.visual')}</div>
                 <div style={{ flex: 1, minWidth: 600, display: 'flex', gap: 16 }}>
-                    <div style={{ flex: 2 }}>DESCRIPTION</div>
-                    <div style={{ flex: 2 }}>DIALOGUE</div>
-                    <div style={{ width: 80 }}>DURATION</div>
-                    <div style={{ flex: 1 }}>CAMERA</div>
-                    <div style={{ flex: 1 }}>SOUND</div>
+                    <div style={{ flex: 2 }}>{t('storyboard.description')}</div>
+                    <div style={{ flex: 2 }}>{t('storyboard.dialogue')}</div>
+                    <div style={{ width: 80 }}>{t('storyboard.duration')}</div>
+                    <div style={{ flex: 1 }}>{t('storyboard.camera')}</div>
+                    <div style={{ flex: 1 }}>{t('storyboard.sound')}</div>
                 </div>
             </div>
 
@@ -229,7 +231,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                             {/* Left Controls */}
                             <div style={{ width: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, borderRight: '1px solid #333', marginRight: 12, paddingTop: 4 }}>
                                 <span style={{ color: '#666', fontWeight: 'bold' }}>#{index + 1}</span>
-                                <Tooltip title="AI Generation (Future)">
+                                <Tooltip title={t('scenes.aiAssistance', 'AI Assistance')}>
                                     <Button type="text" size="small" icon={<RobotOutlined style={{ color: '#1677ff' }} />} />
                                 </Tooltip>
                                 <Dropdown menu={getMenu(index, shot)} trigger={['click']}>
@@ -257,7 +259,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                                     <img src={shot.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : (
                                     <div style={{ textAlign: 'center', color: '#555', fontSize: 12 }}>
-                                        <UploadOutlined style={{ fontSize: 20, marginBottom: 4 }} /><br />Upload
+                                        <UploadOutlined style={{ fontSize: 20, marginBottom: 4 }} /><br />{t('common.upload')}
                                     </div>
                                 )}
                             </div>
@@ -270,7 +272,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                                             value={shot.description}
                                             onChange={e => handleFieldChange(shot.id, 'description', e.target.value)}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
-                                            placeholder="Shot description..."
+                                            placeholder={t('storyboard.description')}
                                         />
                                     </div>
                                     <div style={{ flex: 2, display: 'flex', flexDirection: 'column' }}>
@@ -278,7 +280,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                                             value={shot.dialogue}
                                             onChange={e => handleFieldChange(shot.id, 'dialogue', e.target.value)}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
-                                            placeholder="Dialogue..."
+                                            placeholder={t('storyboard.dialogue')}
                                         />
                                     </div>
                                     <div style={{ width: 80 }}>
@@ -295,7 +297,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                                             value={shot.camera}
                                             onChange={e => handleFieldChange(shot.id, 'camera', e.target.value)}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
-                                            placeholder="Camera moves..."
+                                            placeholder={t('storyboard.camera')}
                                         />
                                     </div>
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -303,7 +305,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                                             value={shot.sound}
                                             onChange={e => handleFieldChange(shot.id, 'sound', e.target.value)}
                                             style={{ height: '100%', resize: 'none', background: '#141414', border: '1px solid #333', color: '#ddd' }}
-                                            placeholder="Music/Sound..."
+                                            placeholder={t('storyboard.sound')}
                                         />
                                     </div>
                                 </div>
@@ -312,7 +314,7 @@ export default function StoryboardEditor({ scene, onUpdate }: InternalProps) {
                     ))}
                     {shots.length === 0 && (
                         <div style={{ padding: 40, textAlign: 'center', color: '#666', border: '1px dashed #333', borderRadius: 8 }}>
-                            No shots. Add or Generate.
+                            {t('storyboard.noShots')}
                         </div>
                     )}
                 </div>

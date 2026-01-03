@@ -1,5 +1,6 @@
-import { Modal, Form, Input, message } from 'antd';
+import { Modal, Form, Input, message, Select } from 'antd';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SettingsService } from '../services/SettingsService';
 import { GlobalSettings } from '../../../shared/types';
 
@@ -9,6 +10,7 @@ interface InternalProps {
 }
 
 export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
+    const { t, i18n } = useTranslation();
     const [form] = Form.useForm<GlobalSettings>();
     const [loading, setLoading] = useState(false);
 
@@ -22,8 +24,12 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
         try {
             const s = await SettingsService.getSettings();
             form.setFieldsValue(s);
+            // Sync i18n with loaded settings if present
+            if (s.language && s.language !== i18n.language) {
+                i18n.changeLanguage(s.language);
+            }
         } catch {
-            message.error('Failed to load settings');
+            message.error(t('common.error', 'Failed to load settings'));
         }
     };
 
@@ -32,7 +38,11 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
             const values = await form.validateFields();
             setLoading(true);
             await SettingsService.saveSettings(values);
-            message.success('Settings saved');
+            // Update language immediately upon save
+            if (values.language) {
+                i18n.changeLanguage(values.language);
+            }
+            message.success(t('settings.saveSuccess'));
             setLoading(false);
             onClose();
         } catch {
@@ -42,23 +52,36 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
 
     return (
         <Modal
-            title="Global Settings"
+            title={t('settings.title')}
             open={open}
             onOk={handleOk}
             onCancel={onClose}
             confirmLoading={loading}
+            okText={t('common.save')}
+            cancelText={t('common.cancel')}
         >
             <Form form={form} layout="vertical">
                 <Form.Item
+                    name="language"
+                    label={t('settings.language')}
+                >
+                    <Select
+                        options={[
+                            { label: 'English', value: 'en' },
+                            { label: '中文', value: 'zh' }
+                        ]}
+                    />
+                </Form.Item>
+                <Form.Item
                     name="volcEngineApiKey"
-                    label="VolcEngine API Key"
+                    label={t('settings.apiKey')}
                     rules={[{ required: true, message: 'API Key is required' }]}
                 >
                     <Input.Password placeholder="Enter your VolcEngine API Key" />
                 </Form.Item>
                 <Form.Item
                     name="volcEngineModel"
-                    label="VolcEngine Model ID"
+                    label={t('settings.modelId')}
                     rules={[{ required: true, message: 'Model ID is required' }]}
                 >
                     <Input placeholder="e.g. ep-2025..." />

@@ -1,0 +1,79 @@
+{
+  "common": {
+    "add": "添加",
+    "delete": "删除",
+    "cancel": "取消",
+    "save": "保存",
+    "ok": "确定",
+    "uploaded": "已上传",
+    "upload": "上传",
+    "confirmDelete": "确定要删除吗？",
+    "yes": "是",
+    "no": "否"
+  },
+  "settings": {
+    "title": "全局设置",
+    "apiKey": "火山引擎 API Key",
+    "modelId": "火山引擎 Model ID",
+    "language": "语言",
+    "saveSuccess": "设置已保存"
+  },
+  "projects": {
+    "title": "我的项目",
+    "newProject": "新建项目",
+    "createTitle": "创建新项目",
+    "namePlaceholder": "项目名称",
+    "lastModified": "最后修改： ",
+    "openFolder": "打开项目文件夹"
+  },
+  "sidebar": {
+    "projects": "项目列表",
+    "workspace": "工作区",
+    "characters": "角色管理",
+    "scenes": "场景剧本",
+    "settings": "世界观设置"
+  },
+  "scenes": {
+    "chapters": "章节列表",
+    "addChapter": "添加章节",
+    "addScene": "添加场景",
+    "deleteScene": "删除场景",
+    "newChapter": "新建章节",
+    "newScene": "新建场景",
+    "deleteChapterTitle": "删除章节？",
+    "deleteChapterContent": "这将删除该章节下的所有场景。",
+    "deleteSceneTitle": "删除场景？",
+    "deleteSceneContent": "确定要删除此场景吗？",
+    "outline": "故事大纲",
+    "conflict": "冲突 / 张力",
+    "generateOutline": "生成大纲",
+    "enhanceConflict": "增强冲突",
+    "aiAssistance": "AI 辅助"
+  },
+  "storyboard": {
+    "title": "分镜脚本",
+    "addShot": "添加镜头",
+    "autoGenerate": "自动生成",
+    "desktop": "桌面端 (16:9)",
+    "mobile": "移动端 (9:16)",
+    "screenFormat": "屏幕比例",
+    "shot": "镜头",
+    "visual": "画面",
+    "description": "画面描述",
+    "dialogue": "对白",
+    "duration": "时长",
+    "camera": "运镜",
+    "sound": "音效/配乐",
+    "seconds": "秒",
+    "selectionActions": "批量操作",
+    "cut": "剪切",
+    "copy": "复制",
+    "pasteUp": "向上粘贴",
+    "pasteDown": "向下粘贴",
+    "insertUp": "向上插入",
+    "insertDown": "向下插入",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "delete": "删除"
+  }
+}

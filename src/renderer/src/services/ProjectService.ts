@@ -21,5 +21,9 @@ export const ProjectService = {
 
   deleteProject: async (id: string): Promise<boolean> => {
     return window.api.deleteProject(id);
+  },
+
+  openProjectsFolder: async (): Promise<void> => {
+    return window.api.openProjectsFolder();
   }
 };

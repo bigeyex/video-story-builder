@@ -1,0 +1,79 @@
+{
+  "common": {
+    "add": "Add",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save",
+    "ok": "OK",
+    "uploaded": "Uploaded",
+    "upload": "Upload",
+    "confirmDelete": "Are you sure you want to delete this?",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "settings": {
+    "title": "Global Settings",
+    "apiKey": "VolcEngine API Key",
+    "modelId": "VolcEngine Model ID",
+    "language": "Language",
+    "saveSuccess": "Settings saved"
+  },
+  "projects": {
+    "title": "My Projects",
+    "newProject": "New Project",
+    "createTitle": "Create New Project",
+    "namePlaceholder": "Project Name",
+    "lastModified": "Last modified: ",
+    "openFolder": "Open Projects Folder"
+  },
+  "sidebar": {
+    "projects": "Projects",
+    "workspace": "Workspace",
+    "characters": "Characters",
+    "scenes": "Scenes",
+    "settings": "World Settings"
+  },
+  "scenes": {
+    "chapters": "Chapters",
+    "addChapter": "Add Chapter",
+    "addScene": "Add Scene",
+    "deleteScene": "Delete Scene",
+    "newChapter": "New Chapter",
+    "newScene": "New Scene",
+    "deleteChapterTitle": "Delete Chapter?",
+    "deleteChapterContent": "This will delete all scenes in this chapter.",
+    "deleteSceneTitle": "Delete Scene?",
+    "deleteSceneContent": "Are you sure you want to delete this scene?",
+    "outline": "Story Outline",
+    "conflict": "Conflict / Tension",
+    "generateOutline": "Generate Outline",
+    "enhanceConflict": "Enhance Conflict",
+    "aiAssistance": "AI Assistance"
+  },
+  "storyboard": {
+    "title": "Storyboard",
+    "addShot": "Add Shot",
+    "autoGenerate": "Auto-Generate",
+    "desktop": "Desktop (16:9)",
+    "mobile": "Mobile (9:16)",
+    "screenFormat": "Screen Format",
+    "shot": "Shot",
+    "visual": "VISUAL",
+    "description": "DESCRIPTION",
+    "dialogue": "DIALOGUE",
+    "duration": "DURATION",
+    "camera": "CAMERA",
+    "sound": "SOUND",
+    "seconds": "SECONDS",
+    "selectionActions": "Selection Actions",
+    "cut": "Cut",
+    "copy": "Copy",
+    "pasteUp": "Paste Up",
+    "pasteDown": "Paste Down",
+    "insertUp": "Insert Up",
+    "insertDown": "Insert Down",
+    "moveUp": "Move Up",
+    "moveDown": "Move Down",
+    "delete": "Delete"
+  }
+}

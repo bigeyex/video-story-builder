@@ -1,6 +1,7 @@
 import { Input, Form, Button, message } from 'antd';
 import { Scene } from '../../../../shared/types';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const { TextArea } = Input;
 
@@ -10,6 +11,7 @@ interface InternalProps {
 }
 
 export default function SceneEditor({ scene, onUpdate }: InternalProps) {
+    const { t } = useTranslation();
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -34,7 +36,7 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
         try {
             const settings = await window.api.getSettings();
             if (!settings.volcEngineApiKey) {
-                return message.error('Please configure API Key first');
+                return message.error(t('common.error', 'Please configure API Key first'));
             }
             message.loading({ content: 'Generating...', key: 'gen' });
             const result = await window.api.generateAI('scene-outline', {
@@ -71,30 +73,30 @@ export default function SceneEditor({ scene, onUpdate }: InternalProps) {
                     </div>
                     <div>
                         <Button type="primary" onClick={handleGenerateOutline} size="small" style={{ marginRight: 10 }}>
-                            Generate Outline
+                            {t('scenes.generateOutline')}
                         </Button>
-                        <Button size="small">Enhance Conflict</Button>
+                        <Button size="small">{t('scenes.enhanceConflict')}</Button>
                     </div>
                 </div>
 
                 {/* Content: Two Columns */}
                 <div style={{ display: 'flex', gap: 24 }}>
                     <div style={{ flex: 1 }}>
-                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>STORY OUTLINE</div>
+                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.outline').toUpperCase()}</div>
                         <Form.Item name="outline" style={{ marginBottom: 0 }}>
                             <TextArea
                                 autoSize={{ minRows: 4, maxRows: 12 }}
-                                placeholder="Describe the sequence of events..."
+                                placeholder={t('scenes.outlinePlaceholder', 'Describe the sequence of events...')}
                                 style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />
                         </Form.Item>
                     </div>
                     <div style={{ flex: 1 }}>
-                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>CONFLICT / TENSION</div>
+                        <div style={{ color: '#888', marginBottom: 4, fontSize: '12px', fontWeight: 'bold' }}>{t('scenes.conflict').toUpperCase()}</div>
                         <Form.Item name="conflict" style={{ marginBottom: 0 }}>
                             <TextArea
                                 autoSize={{ minRows: 4, maxRows: 12 }}
-                                placeholder="What is the central conflict or tension?"
+                                placeholder={t('scenes.conflictPlaceholder', 'What is the central conflict or tension?')}
                                 style={{ resize: 'none', background: '#222', border: '1px solid #444', color: '#eee' }}
                             />
                         </Form.Item>

@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import * as fs from 'fs/promises'
@@ -8,7 +8,9 @@ import * as fs from 'fs/promises'
 import { randomUUID } from 'crypto'
 import OpenAI from 'openai'
 
-const PROJECT_DIR = join(app.getPath('userData'), 'projects')
+// Use current working directory or executable path for portable feel
+// In dev, use app.getAppPath() or similar. In prod, use relative to exe.
+const PROJECT_DIR = join(app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath(), 'storyprojects')
 
 async function ensureProjectDir(): Promise<void> {
   try {
@@ -225,6 +227,11 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
   })
 
   ipcMain.handle('get-app-path', () => app.getPath('userData'))
+  
+  ipcMain.handle('open-projects-folder', async () => {
+      await ensureProjectDir()
+      await shell.openPath(PROJECT_DIR)
+  })
 
   const SETTINGS_FILE = join(app.getPath('userData'), 'settings.json')
 
