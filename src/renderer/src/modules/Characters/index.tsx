@@ -121,6 +121,7 @@ export default function CharactersPage() {
                 open={genModalOpen}
                 onClose={() => setGenModalOpen(false)}
                 onSelect={handleSelectGenerated}
+                wordSettings={project.wordSettings}
             />
         </Layout>
     );

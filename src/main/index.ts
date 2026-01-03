@@ -55,7 +55,8 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  console.log('Projects directory:', PROJECT_DIR)
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.storybuilder.app')
 
@@ -164,16 +165,39 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
   })
 
   // IPC Handlers
-  ipcMain.handle('get-projects', async () => {
+  const migrateProjects = async () => {
     await ensureProjectDir()
     const files = await fs.readdir(PROJECT_DIR)
-    const projects: any[] = []
     for (const file of files) {
-      if (file.endsWith('.json')) {
+      if (file.endsWith('.json') && file !== 'settings.json') {
+        const id = file.replace('.json', '')
+        const oldPath = join(PROJECT_DIR, file)
+        const newDir = join(PROJECT_DIR, id)
+        const newPath = join(newDir, 'project.json')
+
         try {
-          const content = await fs.readFile(join(PROJECT_DIR, file), 'utf-8')
+          await fs.mkdir(newDir, { recursive: true })
+          await fs.rename(oldPath, newPath)
+          console.log(`Migrated project ${id} to subfolder`)
+        } catch (e) {
+          console.error(`Failed to migrate project ${id}`, e)
+        }
+      }
+    }
+  }
+
+  await migrateProjects()
+
+  ipcMain.handle('get-projects', async () => {
+    await ensureProjectDir()
+    const entries = await fs.readdir(PROJECT_DIR, { withFileTypes: true })
+    const projects: any[] = []
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const projectPath = join(PROJECT_DIR, entry.name, 'project.json')
+        try {
+          const content = await fs.readFile(projectPath, 'utf-8')
           const data = JSON.parse(content)
-          // Return only metadata
           projects.push({
             id: data.id,
             name: data.name,
@@ -181,7 +205,7 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
             lastModified: data.lastModified
           })
         } catch (e) {
-          console.error('Failed to read project file', file, e)
+          // Skip directories that don't have project.json
         }
       }
     }
@@ -192,6 +216,9 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
     await ensureProjectDir()
     const id = randomUUID()
     const timestamp = Date.now()
+    const projectDir = join(PROJECT_DIR, id)
+    await fs.mkdir(projectDir, { recursive: true })
+
     const newProject = {
       id,
       name,
@@ -216,14 +243,14 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
         }
       ]
     }
-    await fs.writeFile(join(PROJECT_DIR, `${id}.json`), JSON.stringify(newProject, null, 2))
+    await fs.writeFile(join(projectDir, 'project.json'), JSON.stringify(newProject, null, 2))
     return newProject
   })
 
   ipcMain.handle('load-project', async (_, id: string) => {
     await ensureProjectDir()
     try {
-      const content = await fs.readFile(join(PROJECT_DIR, `${id}.json`), 'utf-8')
+      const content = await fs.readFile(join(PROJECT_DIR, id, 'project.json'), 'utf-8')
       return JSON.parse(content)
     } catch {
       return null
@@ -234,14 +261,16 @@ ipcMain.handle('generate-image', async (_, prompt: string) => {
     await ensureProjectDir()
     const timestamp = Date.now()
     const updatedProject = { ...project, lastModified: timestamp }
-    await fs.writeFile(join(PROJECT_DIR, `${project.id}.json`), JSON.stringify(updatedProject, null, 2))
+    const projectDir = join(PROJECT_DIR, project.id)
+    await fs.mkdir(projectDir, { recursive: true })
+    await fs.writeFile(join(projectDir, 'project.json'), JSON.stringify(updatedProject, null, 2))
     return true
   })
 
   ipcMain.handle('delete-project', async (_, id: string) => {
     await ensureProjectDir()
     try {
-      await fs.unlink(join(PROJECT_DIR, `${id}.json`))
+      await fs.rm(join(PROJECT_DIR, id), { recursive: true, force: true })
       return true
     } catch {
       return false

@@ -12,7 +12,8 @@ const api = {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
   generateAI: (type: string, params: any) => ipcRenderer.invoke('generate-ai', type, params),
-  generateImage: (prompt: string) => ipcRenderer.invoke('generate-image', prompt)
+  generateImage: (prompt: string) => ipcRenderer.invoke('generate-image', prompt),
+  openProjectsFolder: () => ipcRenderer.invoke('open-projects-folder')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

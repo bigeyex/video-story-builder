@@ -134,7 +134,16 @@
     "failed": "Failed: ",
     "characterAdded": "Character added",
     "autoSaveFailed": "Auto-save failed",
-    "aiCharacter": "AI Character"
+    "aiCharacter": "AI Character",
+    "generator": {
+      "title": "Generate Characters",
+      "close": "Close",
+      "generateCount": "Generate {{count}} Candidates",
+      "success": "Characters generated successfully!",
+      "clickToStart": "Click Generate to start.",
+      "select": "Select",
+      "noApiKey": "Please configure API Key in settings first"
+    }
   },
   "scenes": {
     "chapters": "Chapters",

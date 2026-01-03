@@ -134,7 +134,16 @@
     "failed": "失败：",
     "characterAdded": "角色已添加",
     "autoSaveFailed": "自动保存失败",
-    "aiCharacter": "AI 角色"
+    "aiCharacter": "AI 角色",
+    "generator": {
+      "title": "生成角色",
+      "close": "关闭",
+      "generateCount": "生成 {{count}} 个候选角色",
+      "success": "候选角色生成成功！",
+      "clickToStart": "点击“生成”开始。",
+      "select": "选取",
+      "noApiKey": "请先在设置中配置 API Key"
+    }
   },
   "scenes": {
     "chapters": "章节列表",
