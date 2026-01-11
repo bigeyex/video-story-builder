@@ -82,6 +82,7 @@ export interface API {
   uploadImage: (projectId: string, filePath: string) => Promise<string>;
   loadSceneStoryboard: (projectId: string, sceneId: string) => Promise<StoryboardShot[]>;
   generateAIStream: (type: string, params: any) => void;
+  cancelAI: (requestId: string) => Promise<boolean>;
   onAIStreamChunk: (callback: (chunk: string) => void) => () => void;
   onAIStreamEnd: (callback: (fullContent: string) => void) => () => void;
 }

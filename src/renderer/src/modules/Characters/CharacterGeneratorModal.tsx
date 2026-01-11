@@ -2,6 +2,8 @@ import { Modal, Button, message, Avatar, Space } from 'antd';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RobotOutlined, CheckOutlined } from '@ant-design/icons';
+import { v4 as uuidv4 } from 'uuid';
+import { AIProgressToast } from '../../utils/AIUtils';
 
 interface InternalProps {
     open: boolean;
@@ -42,13 +44,39 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
                 return;
             }
 
+            const requestId = uuidv4();
+            const handleStop = () => {
+                window.api.cancelAI(requestId);
+                message.destroy('char-gen');
+                message.info(t('scenes.cancelled', 'Generation cancelled'));
+                setLoading(false);
+            };
+
+            message.loading({
+                content: <AIProgressToast text={t('characters.generating')} onStop={handleStop} />,
+                key: 'char-gen',
+                duration: 0
+            });
+
             const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
-                setStreamedText(prev => prev + chunk);
+                setStreamedText(prev => {
+                    const next = prev + chunk;
+                    message.loading({
+                        content: <AIProgressToast
+                            text={`${t('characters.generating')}... ${maskJson(next).slice(-50)}`}
+                            onStop={handleStop}
+                        />,
+                        key: 'char-gen',
+                        duration: 0
+                    });
+                    return next;
+                });
             });
 
             const removeEndListener = window.api.onAIStreamEnd((fullContent) => {
                 removeChunkListener();
                 removeEndListener();
+                message.destroy('char-gen');
 
                 let content = fullContent.replace(/```json/g, '').replace(/```/g, '').trim();
                 try {
@@ -66,9 +94,10 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
                 setLoading(false);
             });
 
-            window.api.generateAIStream('character-gen', { count: 5, ...wordSettings });
+            window.api.generateAIStream('character-gen', { count: 5, ...wordSettings, requestId });
 
         } catch (e: any) {
+            message.destroy('char-gen');
             message.error(t('characters.failed') + (e.message || e));
             setLoading(false);
         }

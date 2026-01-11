@@ -116,6 +116,19 @@ app.whenReady().then(async () => {
 // AI Handlers
 // OpenAI import moved to top
 
+const activeAIStreams = new Map<string, AbortController>()
+
+ipcMain.handle('cancel-ai', (_, requestId: string) => {
+  const controller = activeAIStreams.get(requestId)
+  if (controller) {
+    controller.abort()
+    activeAIStreams.delete(requestId)
+    console.log(`Aborted AI request: ${requestId}`)
+    return true
+  }
+  return false
+})
+
 ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
   // 1. Get Settings
   const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
@@ -174,6 +187,7 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
 })
 
 ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
+  let fullContent = ''
   try {
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
@@ -204,13 +218,18 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
       baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
     })
 
+    const requestId = params.requestId || `req-${Date.now()}`
+    
+    const controller = new AbortController()
+    activeAIStreams.set(requestId, controller)
+
+
     const stream = await client.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       model: textModelId,
       stream: true,
-    })
+    }, { signal: controller.signal })
 
-    let fullContent = ''
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || ''
       if (content) {
@@ -220,8 +239,17 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     }
     event.sender.send('ai-stream-end', fullContent)
   } catch (e: any) {
-    console.error('Streaming AI error:', e)
-    event.sender.send('ai-stream-error', e.message || String(e))
+    if (e.name === 'AbortError') {
+      console.log('Stream aborted')
+      event.sender.send('ai-stream-end', fullContent) // Send whatever we have
+    } else {
+      console.error('Streaming AI error:', e)
+      event.sender.send('ai-stream-error', e.message || String(e))
+    }
+  } finally {
+    if (params.requestId) {
+        activeAIStreams.delete(params.requestId)
+    }
   }
 })
 

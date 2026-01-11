@@ -2,6 +2,8 @@ import { Input, Form, Button, message } from 'antd';
 import { Scene, Project } from '../../../../shared/types';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { v4 as uuidv4 } from 'uuid';
+import { AIProgressToast } from '../../utils/AIUtils';
 
 const { TextArea } = Input;
 
@@ -40,13 +42,30 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 message.error(t('common.error', 'Please configure API Key first'));
                 return;
             }
-            message.loading({ content: t('scenes.generating'), key: 'gen', duration: 0 });
+            const requestId = uuidv4();
+            const handleStop = () => {
+                window.api.cancelAI(requestId);
+                message.destroy('gen');
+                message.info(t('scenes.cancelled', 'Generation cancelled'));
+            };
+
+            message.loading({
+                content: <AIProgressToast
+                    text={t('scenes.generating')}
+                    onStop={handleStop}
+                />,
+                key: 'gen',
+                duration: 0
+            });
 
             let fullContent = '';
             const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
                 fullContent += chunk;
                 message.loading({
-                    content: `${t('scenes.generating')}... ${maskJson(fullContent).slice(-50)}`,
+                    content: <AIProgressToast
+                        text={`${t('scenes.generating')}... ${maskJson(fullContent).slice(-50)}`}
+                        onStop={handleStop}
+                    />,
                     key: 'gen',
                     duration: 0
                 });
@@ -76,7 +95,8 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 targetAudience: project.wordSettings.targetAudience,
                 artStyle: project.wordSettings.artStyle,
                 summary: project.wordSettings.summary,
-                characters: charactersStr
+                characters: charactersStr,
+                requestId
             });
 
         } catch (e: any) {

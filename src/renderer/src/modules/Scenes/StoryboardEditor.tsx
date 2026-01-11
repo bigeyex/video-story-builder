@@ -6,6 +6,7 @@ import {
     UploadOutlined
 } from '@ant-design/icons';
 import { ProjectService } from '../../services/ProjectService';
+import { AIProgressToast } from '../../utils/AIUtils';
 import { Scene, StoryboardShot, Project } from '../../../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useState, useEffect } from 'react';
@@ -157,13 +158,27 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
             }
 
             if (!shot.description.trim()) {
-                message.loading({ content: t('storyboard.generatingDescription'), key: 'shot-ai', duration: 0 });
+                const requestId = uuidv4();
+                const handleStop = () => {
+                    window.api.cancelAI(requestId);
+                    message.destroy('shot-ai');
+                    message.info(t('scenes.cancelled', 'Generation cancelled'));
+                };
+
+                message.loading({
+                    content: <AIProgressToast text={t('storyboard.generatingDescription')} onStop={handleStop} />,
+                    key: 'shot-ai',
+                    duration: 0
+                });
 
                 let fullContent = '';
                 const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
                     fullContent += chunk;
                     message.loading({
-                        content: `${t('storyboard.generatingDescription')}... ${maskJson(fullContent).slice(-50)}`,
+                        content: <AIProgressToast
+                            text={`${t('storyboard.generatingDescription')}... ${maskJson(fullContent).slice(-50)}`}
+                            onStop={handleStop}
+                        />,
                         key: 'shot-ai',
                         duration: 0
                     });
@@ -192,7 +207,8 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                     sceneTitle: scene.title,
                     sceneOutline: scene.outline,
                     shotIndex: shots.findIndex(s => s.id === shot.id) + 1,
-                    previousShot: shots[shots.findIndex(s => s.id === shot.id) - 1]?.description || 'None'
+                    previousShot: shots[shots.findIndex(s => s.id === shot.id) - 1]?.description || 'None',
+                    requestId
                 });
                 return;
             }
@@ -237,15 +253,32 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
     const handleAutoGenerate = async () => {
         try {
             const settings = await window.api.getSettings();
-            if (!settings.volcEngineApiKey) return message.error(t('common.error', 'No API Key'));
+            if (!settings.volcEngineApiKey) {
+                message.error(t('common.error', 'No API Key'));
+                return;
+            }
 
-            message.loading({ content: t('storyboard.generatingShots'), key: 'gen', duration: 0 });
+            const requestId = uuidv4();
+            const handleStop = () => {
+                window.api.cancelAI(requestId);
+                message.destroy('gen');
+                message.info(t('scenes.cancelled', 'Generation cancelled'));
+            };
+
+            message.loading({
+                content: <AIProgressToast text={t('storyboard.generatingShots')} onStop={handleStop} />,
+                key: 'gen',
+                duration: 0
+            });
 
             let fullContent = '';
             const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
                 fullContent += chunk;
                 message.loading({
-                    content: `${t('storyboard.generatingShots')}... ${maskJson(fullContent).slice(-50)}`,
+                    content: <AIProgressToast
+                        text={`${t('storyboard.generatingShots')}... ${maskJson(fullContent).slice(-50)}`}
+                        onStop={handleStop}
+                    />,
                     key: 'gen',
                     duration: 0
                 });
@@ -283,7 +316,8 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                 outline: scene.outline,
                 conflict: scene.conflict,
                 artStyle: project.wordSettings.artStyle,
-                characters: project.characters.map(c => `${c.name}: ${c.appearance}`).join('\n')
+                characters: project.characters.map(c => `${c.name}: ${c.appearance}`).join('\n'),
+                requestId
             });
 
         } catch (e) {
