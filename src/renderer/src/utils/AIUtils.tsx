@@ -2,7 +2,7 @@ import { Button } from 'antd';
 import { PauseCircleOutlined } from '@ant-design/icons';
 
 interface AIProgressToastProps {
-    text: string;
+    text: React.ReactNode;
     onStop: () => void;
 }
 

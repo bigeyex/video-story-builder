@@ -33,7 +33,11 @@ export default function ScenesPage() {
                 setProject(p);
                 // Auto select first chapter/scene if avail
                 if (p && p.chapters.length > 0) {
-                    setSelectedChapterId(p.chapters[0].id);
+                    const firstChapter = p.chapters[0];
+                    setSelectedChapterId(firstChapter.id);
+                    if (firstChapter.scenes.length > 0) {
+                        setSelectedSceneId(firstChapter.scenes[0].id);
+                    }
                 }
             });
         }

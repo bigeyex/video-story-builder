@@ -58,20 +58,35 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 duration: 0
             });
 
-            let fullContent = '';
-            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
-                fullContent += chunk;
+            let streamData = { thinking: '', content: '' };
+
+            const updateToast = () => {
+                const displayText = streamData.thinking
+                    ? <>{t('scenes.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
+                    : <>{t('scenes.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
+
                 message.loading({
                     content: <AIProgressToast
-                        text={`${t('scenes.generating')}... ${maskJson(fullContent).slice(-50)}`}
+                        text={displayText}
                         onStop={handleStop}
                     />,
                     key: 'gen',
                     duration: 0
                 });
+            };
+
+            const removeThinkingListener = window.api.onAIStreamThinking((chunk) => {
+                streamData.thinking += chunk;
+                updateToast();
+            });
+
+            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                streamData.content += chunk;
+                updateToast();
             });
 
             const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
+                removeThinkingListener();
                 removeChunkListener();
                 removeEndListener();
 

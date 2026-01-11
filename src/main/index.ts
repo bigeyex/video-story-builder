@@ -159,6 +159,7 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
   // 4. Inject language instruction
   const langMap = {
     'zh': 'Chinese',
+    'zh-CN': 'Chinese',
     'en': 'English'
   }
   const targetLang = langMap[settings.language] || 'English'
@@ -209,7 +210,7 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
       prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value))
     }
 
-    const langMap = { 'zh': 'Chinese', 'en': 'English' }
+    const langMap = { 'zh': 'Chinese', 'zh-CN': 'Chinese', 'en': 'English' }
     const targetLang = langMap[settings.language] || 'English'
     prompt += `\n\nPlease respond in ${targetLang}.`
 

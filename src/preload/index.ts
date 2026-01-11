@@ -23,6 +23,11 @@ const api = {
     ipcRenderer.on('ai-stream-chunk', listener)
     return () => ipcRenderer.removeListener('ai-stream-chunk', listener)
   },
+  onAIStreamThinking: (callback: (content: string) => void) => {
+    const listener = (_: any, content: string) => callback(content)
+    ipcRenderer.on('ai-stream-thinking', listener)
+    return () => ipcRenderer.removeListener('ai-stream-thinking', listener)
+  },
   onAIStreamEnd: (callback: (fullContent: string) => void) => {
     const listener = (_: any, fullContent: string) => callback(fullContent)
     ipcRenderer.on('ai-stream-end', listener)

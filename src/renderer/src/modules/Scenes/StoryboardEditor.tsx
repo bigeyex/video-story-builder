@@ -271,26 +271,63 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                 duration: 0
             });
 
-            let fullContent = '';
-            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
-                fullContent += chunk;
+            const streamData = { thinking: '', content: '' };
+
+            const updateToast = () => {
+                const displayText = streamData.thinking
+                    ? <>{t('storyboard.generatingShots')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
+                    : <>{t('storyboard.generatingShots')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
+
                 message.loading({
                     content: <AIProgressToast
-                        text={`${t('storyboard.generatingShots')}... ${maskJson(fullContent).slice(-50)}`}
+                        text={displayText}
                         onStop={handleStop}
                     />,
                     key: 'gen',
                     duration: 0
                 });
+            };
+
+            const removeThinkingListener = window.api.onAIStreamThinking((chunk) => {
+                streamData.thinking += chunk;
+                updateToast();
+            });
+
+            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                streamData.content += chunk;
+                updateToast();
             });
 
             const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
+                removeThinkingListener();
                 removeChunkListener();
                 removeEndListener();
 
                 let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
                 try {
-                    const result = JSON.parse(content);
+                    // Handle potential wrapped JSON or markdown noise
+                    const firstBracket = content.indexOf('[');
+                    const firstBrace = content.indexOf('{');
+
+                    if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+                        // It's likely an array
+                        content = content.substring(firstBracket, content.lastIndexOf(']') + 1);
+                    } else if (firstBrace !== -1) {
+                        // It's likely an object
+                        content = content.substring(firstBrace, content.lastIndexOf('}') + 1);
+                    }
+
+                    let result = JSON.parse(content);
+
+                    // Unpack if wrapped in a key like "shots" or "storyboard"
+                    if (!Array.isArray(result) && typeof result === 'object') {
+                        const values = Object.values(result);
+                        const arrayVal = values.find(v => Array.isArray(v));
+                        if (arrayVal) {
+                            result = arrayVal;
+                        }
+                    }
+
                     if (Array.isArray(result) && result.length > 0) {
                         const generatedShots: StoryboardShot[] = result.map((r: any) => ({
                             id: uuidv4(),
@@ -304,9 +341,11 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                         updateShots([...shots, ...generatedShots]);
                         message.success({ content: t('storyboard.generated'), key: 'gen' });
                     } else {
+                        console.warn('AI Output not an array:', result);
                         message.warning({ content: t('storyboard.aiNoShots'), key: 'gen' });
                     }
                 } catch (e) {
+                    console.error('Failed to parse AI response:', e, content);
                     message.error({ content: t('common.failed') + ' (Invalid JSON)', key: 'gen' });
                 }
             });

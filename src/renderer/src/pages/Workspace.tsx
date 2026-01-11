@@ -1,7 +1,7 @@
 import { Layout, Menu, Button, Tooltip } from 'antd';
 import { SettingOutlined, TeamOutlined, VideoCameraOutlined, BookOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import GlobalSettingsModal from '../components/GlobalSettingsModal';
 
@@ -14,6 +14,12 @@ export default function Workspace() {
     const { projectId } = useParams();
     // Removed collapse state to keep sidebar expanded or fixed width as requested (replacing toggle with action)
     const [settingsOpen, setSettingsOpen] = useState(false);
+
+    useEffect(() => {
+        const handleOpenSettings = () => setSettingsOpen(true);
+        window.addEventListener('open-global-settings', handleOpenSettings);
+        return () => window.removeEventListener('open-global-settings', handleOpenSettings);
+    }, []);
 
     // Determine selected key based on path
     const currentPath = location.pathname.split('/').pop();

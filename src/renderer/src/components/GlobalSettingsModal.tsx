@@ -77,7 +77,8 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
                     <Select
                         options={[
                             { label: 'English', value: 'en' },
-                            { label: '中文', value: 'zh' }
+                            { label: '中文', value: 'zh' },
+                            { label: '中文 (zh-CN)', value: 'zh-CN' }
                         ]}
                     />
                 </Form.Item>

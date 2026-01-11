@@ -40,6 +40,7 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
             const settings = await window.api.getSettings();
             if (!settings.volcEngineApiKey) {
                 message.error(t('characters.generator.noApiKey'));
+                window.dispatchEvent(new CustomEvent('open-global-settings'));
                 setLoading(false);
                 return;
             }
@@ -53,30 +54,43 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
             };
 
             message.loading({
-                content: <AIProgressToast text={t('characters.generating')} onStop={handleStop} />,
+                content: <AIProgressToast text={`${t('characters.generating')}\n\nThinking process:\n...`} onStop={handleStop} />,
                 key: 'char-gen',
                 duration: 0
             });
 
-            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
-                setStreamedText(prev => {
-                    const next = prev + chunk;
-                    message.loading({
-                        content: <AIProgressToast
-                            text={`${t('characters.generating')}... ${maskJson(next).slice(-50)}`}
-                            onStop={handleStop}
-                        />,
-                        key: 'char-gen',
-                        duration: 0
-                    });
-                    return next;
+            const streamData = { thinking: '', content: '' };
+
+            const updateToast = () => {
+                const displayText = streamData.thinking
+                    ? <>{t('characters.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
+                    : <>{t('characters.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
+
+                message.loading({
+                    content: <AIProgressToast
+                        text={displayText}
+                        onStop={handleStop}
+                    />,
+                    key: 'char-gen',
+                    duration: 0
                 });
+            };
+
+            const removeThinkingListener = window.api.onAIStreamThinking((chunk) => {
+                streamData.thinking += chunk;
+                updateToast();
+            });
+
+            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                streamData.content += chunk;
+                setStreamedText(streamData.content);
+                updateToast();
             });
 
             const removeEndListener = window.api.onAIStreamEnd((fullContent) => {
+                removeThinkingListener();
                 removeChunkListener();
                 removeEndListener();
-                message.destroy('char-gen');
 
                 let content = fullContent.replace(/```json/g, '').replace(/```/g, '').trim();
                 try {
@@ -87,9 +101,9 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
                         id: c.id || `gen-${Date.now()}-${index}`
                     }));
                     setCandidates(withIds);
-                    message.success(t('characters.generator.success'));
+                    message.success({ content: t('characters.generator.success'), key: 'char-gen', duration: 3 });
                 } catch (e) {
-                    message.error(t('characters.failed') + ' (Invalid JSON)');
+                    message.error({ content: t('characters.failed') + ' (Invalid JSON)', key: 'char-gen', duration: 3 });
                 }
                 setLoading(false);
             });
@@ -97,8 +111,7 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
             window.api.generateAIStream('character-gen', { count: 5, ...wordSettings, requestId });
 
         } catch (e: any) {
-            message.destroy('char-gen');
-            message.error(t('characters.failed') + (e.message || e));
+            message.error({ content: t('characters.failed') + (e.message || e), key: 'char-gen', duration: 3 });
             setLoading(false);
         }
     };

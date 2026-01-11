@@ -84,5 +84,6 @@ export interface API {
   generateAIStream: (type: string, params: any) => void;
   cancelAI: (requestId: string) => Promise<boolean>;
   onAIStreamChunk: (callback: (chunk: string) => void) => () => void;
+  onAIStreamThinking: (callback: (content: string) => void) => () => void;
   onAIStreamEnd: (callback: (fullContent: string) => void) => () => void;
 }
