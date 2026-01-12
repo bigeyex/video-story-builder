@@ -232,7 +232,14 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     }, { signal: controller.signal })
 
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || ''
+      const delta = chunk.choices[0]?.delta as any
+      const content = delta?.content || ''
+      const reasoningContent = delta?.reasoning_content || ''
+
+      if (reasoningContent) {
+        event.sender.send('ai-stream-thinking', reasoningContent)
+      }
+
       if (content) {
         fullContent += content
         event.sender.send('ai-stream-chunk', content)

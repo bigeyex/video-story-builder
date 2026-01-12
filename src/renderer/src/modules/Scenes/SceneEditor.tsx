@@ -43,7 +43,9 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 return;
             }
             const requestId = uuidv4();
+            let isCancelled = false;
             const handleStop = () => {
+                isCancelled = true;
                 window.api.cancelAI(requestId);
                 message.destroy('gen');
                 message.info(t('scenes.cancelled', 'Generation cancelled'));
@@ -89,6 +91,8 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 removeThinkingListener();
                 removeChunkListener();
                 removeEndListener();
+
+                if (isCancelled) return;
 
                 let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
                 try {
