@@ -87,6 +87,7 @@ export interface API {
   generateShotVideo: (params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => Promise<string>;
   cancelVideoTask: (taskId: string) => Promise<boolean>;
   resumeVideoPolling: (params: { projectId: string, shotId: string, taskId: string }) => Promise<void>;
+  resumeProjectVideoPolling: (projectId: string) => Promise<void>;
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   openProjectsFolder: () => Promise<void>;
   uploadImage: (projectId: string, filePath: string) => Promise<string>;

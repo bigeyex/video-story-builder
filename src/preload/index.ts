@@ -18,6 +18,7 @@ const api = {
   generateShotVideo: (params: any) => ipcRenderer.invoke('generate-shot-video', params),
   cancelVideoTask: (taskId: string) => ipcRenderer.invoke('cancel-video-task', taskId),
   resumeVideoPolling: (params: any) => ipcRenderer.invoke('resume-video-polling', params),
+  resumeProjectVideoPolling: (projectId: string) => ipcRenderer.invoke('resume-project-video-polling', projectId),
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => ipcRenderer.invoke('generate-character-design', prompt, projectId, characterId),
   openProjectsFolder: () => ipcRenderer.invoke('open-projects-folder'),
   uploadImage: (projectId: string, filePath: string) => ipcRenderer.invoke('upload-image', projectId, filePath),

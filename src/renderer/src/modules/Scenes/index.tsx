@@ -39,6 +39,8 @@ export default function ScenesPage() {
                         setSelectedSceneId(firstChapter.scenes[0].id);
                     }
                 }
+                // Resume polling for all pending videos in the project
+                window.api.resumeProjectVideoPolling(projectId);
             });
         }
     }, [projectId]);

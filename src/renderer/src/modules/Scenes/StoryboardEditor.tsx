@@ -464,21 +464,6 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdateSho
         return () => removeListener();
     }, [shots, project.id]);
 
-    // --- Resume Video Polling on mount ---
-    useEffect(() => {
-        if (project.id && shots.length > 0) {
-            shots.forEach(shot => {
-                if (shot.videoTaskId && !shot.video && shot.videoStatus !== 'failed') {
-                    window.api.resumeVideoPolling({
-                        projectId: project.id,
-                        shotId: shot.id,
-                        taskId: shot.videoTaskId
-                    });
-                }
-            });
-        }
-    }, [project.id]); // Only run when project changes or on mount
-
     // --- Lazy Loading ---
     useEffect(() => {
         if (scene.id && project.id) {

@@ -705,18 +705,47 @@ async function startVideoPolling(params: {
     return false;
   })
 
-  ipcMain.handle('resume-video-polling', async (event, params: { projectId: string, shotId: string, taskId: string }) => {
+  ipcMain.handle('resume-project-video-polling', async (event, projectId: string) => {
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
-    if (!settings.volcEngineApiKey) return;
+    const apiKey = settings.volcEngineApiKey;
+    if (!apiKey) return;
 
-    startVideoPolling({
-        projectId: params.projectId,
-        shotId: params.shotId,
-        taskId: params.taskId,
-        apiKey: settings.volcEngineApiKey,
-        eventSender: event.sender
-    });
+    try {
+        const projectPath = join(PROJECT_DIR, projectId, 'project.json');
+        const projectContent = await fs.readFile(projectPath, 'utf-8');
+        const project = JSON.parse(projectContent);
+        
+        // Iterate through all chapters and scenes
+        for (const chapter of project.chapters) {
+            for (const scene of chapter.scenes) {
+                const scenePath = join(PROJECT_DIR, projectId, 'scenes', `${scene.id}.json`);
+                try {
+                    const sceneContent = await fs.readFile(scenePath, 'utf-8');
+                    const storyboard = JSON.parse(sceneContent);
+                    
+                    if (Array.isArray(storyboard)) {
+                        for (const shot of storyboard) {
+                            if (shot.videoTaskId && !shot.video && shot.videoStatus !== 'failed') {
+                                startVideoPolling({
+                                    projectId,
+                                    shotId: shot.id,
+                                    taskId: shot.videoTaskId,
+                                    apiKey,
+                                    eventSender: event.sender
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Ignore missing or invalid scene files
+                    console.debug(`Could not load scene ${scene.id} for polling resumption:`, e);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Failed to resume project video polling:', e);
+    }
   })
 
 
