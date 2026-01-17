@@ -54,7 +54,7 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
             };
 
             message.loading({
-                content: <AIProgressToast text={`${t('characters.generating')}\n\nThinking process:\n...`} onStop={handleStop} />,
+                content: <AIProgressToast text={`${t('characters.generating')}\n\n${t('common.thinkingProcess')}\n...`} onStop={handleStop} />,
                 key: 'char-gen',
                 duration: 0
             });
@@ -63,8 +63,8 @@ export default function CharacterGeneratorModal({ open, onClose, onSelect, wordS
 
             const updateToast = () => {
                 const displayText = streamData.thinking
-                    ? <>{t('characters.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
-                    : <>{t('characters.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
+                    ? <>{t('characters.generating')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
+                    : <>{t('characters.generating')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
 
                 message.loading({
                     content: <AIProgressToast

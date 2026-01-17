@@ -512,7 +512,93 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     }
   })
 
-  ipcMain.handle('generate-shot-video', async (_, params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => {
+const activeVideoPolls = new Map<string, AbortController>()
+
+async function startVideoPolling(params: {
+    projectId: string,
+    shotId: string,
+    taskId: string,
+    apiKey: string,
+    eventSender: Electron.WebContents
+}) {
+    const { projectId, shotId, taskId, apiKey, eventSender } = params;
+    
+    if (activeVideoPolls.has(taskId)) return;
+    
+    const controller = new AbortController();
+    activeVideoPolls.set(taskId, controller);
+    
+    let pollCount = 0;
+    try {
+        while (!controller.signal.aborted) {
+            pollCount++;
+            const statusRes = await fetch(`https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/${taskId}`, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                signal: controller.signal
+            });
+
+            if (!statusRes.ok) {
+                console.warn(`[Poll ${pollCount}] Polling failed for task ${taskId}, retrying...`);
+            } else {
+                const statusData: any = await statusRes.json();
+                const status = statusData.status;
+                console.log(`[Poll ${pollCount}] Task ${taskId} status: ${status}`);
+                
+                if (status === 'succeeded') {
+                    console.log(`[Poll ${pollCount}] Video generation succeeded. Full response:`, JSON.stringify(statusData, null, 2));
+                    const videoUrl = statusData.content?.video_url;
+                    
+                    if (videoUrl) {
+                        // Download and save locally
+                        try {
+                            const videoDir = join(PROJECT_DIR, projectId, 'videos');
+                            await fs.mkdir(videoDir, { recursive: true });
+                            
+                            const fileName = `video_${shotId}_${Date.now()}.mp4`;
+                            const filePath = join(videoDir, fileName);
+                            
+                            const videoFileRes = await fetch(videoUrl);
+                            const buffer = await videoFileRes.arrayBuffer();
+                            await fs.writeFile(filePath, Buffer.from(buffer));
+                            
+                            const relativeVideoUrl = `${projectId}/videos/${fileName}`;
+                            eventSender.send('video-status-update', { projectId, shotId, status: 'succeeded', videoUrl: relativeVideoUrl });
+                        } catch (e) {
+                            console.error('Failed to save video locally:', e);
+                            eventSender.send('video-status-update', { projectId, shotId, status: 'succeeded', videoUrl }); // Fallback to remote
+                        }
+                        break;
+                    } else {
+                        eventSender.send('video-status-update', { projectId, shotId, status: 'failed', error: 'Video URL not found in response' });
+                        break;
+                    }
+                } else if (status === 'failed') {
+                    console.error(`[Poll ${pollCount}] Video generation failed:`, JSON.stringify(statusData, null, 2));
+                    eventSender.send('video-status-update', { projectId, shotId, status: 'failed', error: statusData.error_message || 'Unknown error' });
+                    break;
+                } else {
+                    // Still running or pending
+                    eventSender.send('video-status-update', { projectId, shotId, status });
+                }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    } catch (e: any) {
+        if (e.name === 'AbortError') {
+            console.log(`Video polling aborted for task: ${taskId}`);
+        } else {
+            console.error(`Error polling video task ${taskId}:`, e);
+            eventSender.send('video-status-update', { projectId, shotId, status: 'failed', error: e.message });
+        }
+    } finally {
+        activeVideoPolls.delete(taskId);
+    }
+}
+
+  ipcMain.handle('generate-shot-video', async (event, params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => {
     const { projectId, prompt, shotId, imageUrl } = params;
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
@@ -521,8 +607,6 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     if (!settings.volcEngineApiKey) {
       throw new Error('API Key not configured')
     }
-
-
 
     // 1. Prepare Image Base64
     let imageDataUrl = '';
@@ -578,65 +662,42 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     const taskId = taskData.id;
     if (!taskId) throw new Error('No task ID returned');
 
-    // 3. Poll for Status
-    let videoUrl = '';
-    let pollCount = 0;
+    // 3. Start Background Polling
+    startVideoPolling({
+        projectId,
+        shotId,
+        taskId,
+        apiKey: settings.volcEngineApiKey,
+        eventSender: event.sender
+    });
 
-    while (true) {
-        pollCount++;
-        const statusRes = await fetch(`https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/${taskId}`, {
-            headers: {
-                'Authorization': `Bearer ${settings.volcEngineApiKey}`
-            }
-        });
-
-        if (!statusRes.ok) {
-            console.warn(`[Poll ${pollCount}] Polling failed for task ${taskId}, retrying...`);
-        } else {
-            const statusData: any = await statusRes.json();
-            const status = statusData.status;
-            console.log(`[Poll ${pollCount}] Task ${taskId} status: ${status}`);
-            
-            if (status === 'succeeded') {
-                // Try to extract video URL from different possible locations
-                videoUrl = statusData.content.video_url;
-                
-                if (videoUrl) {
-                    console.log(`[Poll ${pollCount}] Extracted video URL: ${videoUrl}`);
-                    break;
-                } else {
-                    console.error(`[Poll ${pollCount}] Task succeeded but video_url is missing from response.`);
-                    throw new Error('Video generation succeeded but video URL was not found in response');
-                }
-            } else if (status === 'failed') {
-                console.error(`[Poll ${pollCount}] Video generation failed:`, JSON.stringify(statusData, null, 2));
-                throw new Error(`Video generation failed: ${statusData.error_message || 'Unknown error'}`);
-            }
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-
-    if (!videoUrl) throw new Error('Video URL not found in response');
-
-    // 4. Save Video Locally
-    try {
-        const videoDir = join(PROJECT_DIR, projectId, 'videos');
-        await fs.mkdir(videoDir, { recursive: true });
-        
-        const fileName = `video_${shotId}_${Date.now()}.mp4`;
-        const filePath = join(videoDir, fileName);
-        
-        const videoFileRes = await fetch(videoUrl);
-        const buffer = await videoFileRes.arrayBuffer();
-        await fs.writeFile(filePath, Buffer.from(buffer));
-        
-        return `${projectId}/videos/${fileName}`;
-    } catch (e) {
-        console.error('Failed to save video locally:', e);
-        return videoUrl; // Fallback to remote URL
-    }
+    return taskId;
   })
+
+  ipcMain.handle('cancel-video-task', (_, taskId: string) => {
+    const controller = activeVideoPolls.get(taskId);
+    if (controller) {
+        controller.abort();
+        activeVideoPolls.delete(taskId);
+        return true;
+    }
+    return false;
+  })
+
+  ipcMain.handle('resume-video-polling', async (event, params: { projectId: string, shotId: string, taskId: string }) => {
+    const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(settingsStr)
+    if (!settings.volcEngineApiKey) return;
+
+    startVideoPolling({
+        projectId: params.projectId,
+        shotId: params.shotId,
+        taskId: params.taskId,
+        apiKey: settings.volcEngineApiKey,
+        eventSender: event.sender
+    });
+  })
+
 
   ipcMain.handle('upload-image', async (_, projectId: string, filePath: string) => {
     const { nativeImage } = require('electron')

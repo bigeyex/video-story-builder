@@ -1,9 +1,10 @@
-import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip, Upload, Modal } from 'antd';
+import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip, Upload, Modal, InputNumber } from 'antd';
 import {
     PlusOutlined, VideoCameraOutlined, MoreOutlined, RobotOutlined,
     ScissorOutlined, CopyOutlined, SnippetsOutlined,
     ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined,
-    UploadOutlined, ThunderboltOutlined, DownOutlined, PlayCircleOutlined
+    UploadOutlined, ThunderboltOutlined, DownOutlined, PlayCircleOutlined,
+    SyncOutlined, StopOutlined
 } from '@ant-design/icons';
 import { ProjectService } from '../../services/ProjectService';
 import { AIProgressToast } from '../../utils/AIUtils';
@@ -32,9 +33,32 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
 
     const [previewVideo, setPreviewVideo] = useState<string | null>(null);
     const [hoverShotId, setHoverShotId] = useState<string | null>(null);
+    const [hoverVideoBtnId, setHoverVideoBtnId] = useState<string | null>(null);
+
+    // --- Generate Shots Modal ---
+    const [shotCountModalVisible, setShotCountModalVisible] = useState(false);
+    const [desiredShotCount, setDesiredShotCount] = useState(6);
 
     const handleGenerateShotVideo = async (shot: StoryboardShot) => {
         try {
+            if (shot.videoStatus === 'running') {
+                if (shot.videoTaskId) {
+                    // Optimistic cancellation: clear UI state immediately
+                    const shotId = shot.id;
+                    const taskId = shot.videoTaskId;
+                    handleFieldChange(shotId, 'videoStatus', undefined);
+                    handleFieldChange(shotId, 'videoTaskId', undefined);
+
+                    // Trigger cancellation in background
+                    window.api.cancelVideoTask(taskId).catch(err => {
+                        console.error('Failed to cancel video task:', err);
+                    });
+
+                    message.info(t('scenes.cancelled', 'Generation cancelled'));
+                }
+                return;
+            }
+
             const settings = await window.api.getSettings();
             if (!settings.volcEngineApiKey) {
                 message.error(t('common.error', 'No API Key'));
@@ -46,34 +70,22 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                 return;
             }
 
-            let isCancelled = false;
-            const handleStop = () => {
-                isCancelled = true;
-                message.destroy('shot-ai-video');
-                message.info(t('scenes.cancelled', 'Generation cancelled'));
-            };
-
-            message.loading({
-                content: <AIProgressToast text={t('storyboard.generatingVideo', 'Generating video...')} onStop={handleStop} />,
-                key: 'shot-ai-video',
-                duration: 0
-            });
-
             const prompt = `Style consistent with the image. Shot Description: ${shot.description}. Camera: ${shot.camera}. Movement: smooth animation.`;
 
-            const videoUrl = await window.api.generateShotVideo({
+            handleFieldChange(shot.id, 'videoStatus', 'running');
+
+            const taskId = await window.api.generateShotVideo({
                 projectId: project.id,
                 prompt,
                 shotId: shot.id,
                 imageUrl: shot.image
             });
 
-            if (isCancelled) return;
-
-            handleFieldChange(shot.id, 'video', videoUrl);
-            message.success({ content: t('storyboard.videoGenerated', 'Video generated successfully'), key: 'shot-ai-video' });
+            handleFieldChange(shot.id, 'videoTaskId', taskId);
+            message.info(t('storyboard.videoGenerationStarted', 'Video generation started in background'));
         } catch (e) {
-            message.error({ content: t('common.failed') + ': ' + e, key: 'shot-ai-video' });
+            handleFieldChange(shot.id, 'videoStatus', 'failed');
+            message.error(t('common.failed') + ': ' + e);
         }
     };
 
@@ -300,7 +312,7 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
         }
     };
 
-    const handleBatchGenerate = async (overwrite: boolean) => {
+    const handleBatchImageGenerate = async (overwrite: boolean) => {
         const shotsToGenerate = shots.filter(s => overwrite || !s.image);
         if (shotsToGenerate.length === 0) {
             message.info(t('storyboard.noShotsToGenerate', 'No shots need generation'));
@@ -315,7 +327,7 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
         };
 
         message.loading({
-            content: <AIProgressToast text={t('storyboard.batchGenerating', 'Starting batch generation...')} onStop={handleStop} />,
+            content: <AIProgressToast text={t('storyboard.batchGeneratingImages', 'Starting batch image generation...')} onStop={handleStop} />,
             key: 'batch-gen',
             duration: 0
         });
@@ -326,10 +338,9 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
         for (const shot of shotsToGenerate) {
             if (isCancelled) break;
 
-            // Update toast with current progress
             message.loading({
                 content: <AIProgressToast
-                    text={`${t('storyboard.batchGenerating')} (${successCount + failCount + 1}/${shotsToGenerate.length})`}
+                    text={`${t('storyboard.batchGeneratingImages')} (${successCount + failCount + 1}/${shotsToGenerate.length})`}
                     onStop={handleStop}
                 />,
                 key: 'batch-gen',
@@ -354,19 +365,120 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
         }
     };
 
+    const handleBatchVideoGenerate = async (overwrite: boolean) => {
+        const shotsToGenerate = shots.filter(s => s.image && (overwrite || !s.video));
+        if (shotsToGenerate.length === 0) {
+            message.info(t('storyboard.noShotsToGenerateVideo', 'No shots with images need video generation'));
+            return;
+        }
+
+        let isCancelled = false;
+        const handleStop = () => {
+            isCancelled = true;
+            message.destroy('batch-gen-video');
+            message.info(t('scenes.cancelled', 'Batch generation cancelled'));
+        };
+
+        message.loading({
+            content: <AIProgressToast text={t('storyboard.batchGeneratingVideos', 'Starting batch video generation...')} onStop={handleStop} />,
+            key: 'batch-gen-video',
+            duration: 0
+        });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const shot of shotsToGenerate) {
+            if (isCancelled) break;
+
+            message.loading({
+                content: <AIProgressToast
+                    text={`${t('storyboard.batchGeneratingVideos')} (${successCount + failCount + 1}/${shotsToGenerate.length})`}
+                    onStop={handleStop}
+                />,
+                key: 'batch-gen-video',
+                duration: 0
+            });
+
+            try {
+                // For videos, handleGenerateShotVideo is non-blocking and returns taskId.
+                // In batch, we probably want to start them sequentially but might overlap?
+                // Given the API constraints, sequential task creation is safer. 
+                // handleGenerateShotVideo already sets videoStatus to 'running'.
+                await handleGenerateShotVideo(shot);
+                successCount++;
+            } catch (e) {
+                console.error(`Failed to start video generation for shot ${shot.id}:`, e);
+                failCount++;
+            }
+
+            // Short delay between creating tasks to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        if (isCancelled) return;
+
+        message.success({
+            content: t('storyboard.batchVideoStarted', { count: successCount }),
+            key: 'batch-gen-video'
+        });
+    };
+
     const handleFieldChange = (id: string, field: keyof StoryboardShot, value: any) => {
         updateShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
     };
+
+    // --- Listen to Video Status Updates ---
+    useEffect(() => {
+        const removeListener = window.api.onVideoStatusUpdate((data) => {
+            if (data.projectId !== project.id) return;
+
+            const shot = shots.find(s => s.id === data.shotId);
+            if (!shot) return;
+
+            if (data.status === 'succeeded' && data.videoUrl) {
+                const newShots = shots.map(s => s.id === data.shotId ? {
+                    ...s,
+                    video: data.videoUrl,
+                    videoStatus: 'succeeded' as const,
+                    videoTaskId: undefined
+                } : s);
+                updateShots(newShots);
+                message.success(t('storyboard.videoGenerated', 'Video generated successfully'));
+            } else if (data.status === 'failed') {
+                handleFieldChange(data.shotId, 'videoStatus', 'failed');
+                message.error(t('storyboard.videoGenerationFailed', 'Video generation failed') + (data.error ? `: ${data.error}` : ''));
+            } else {
+                // Potential intermediate status updates like 'running' or 'pending'
+                if (shot.videoStatus !== data.status) {
+                    handleFieldChange(data.shotId, 'videoStatus', data.status as any);
+                }
+            }
+        });
+
+        return () => removeListener();
+    }, [shots, project.id]);
+
+    // --- Resume Video Polling on mount ---
+    useEffect(() => {
+        if (project.id && shots.length > 0) {
+            shots.forEach(shot => {
+                if (shot.videoTaskId && !shot.video && shot.videoStatus !== 'failed') {
+                    window.api.resumeVideoPolling({
+                        projectId: project.id,
+                        shotId: shot.id,
+                        taskId: shot.videoTaskId
+                    });
+                }
+            });
+        }
+    }, [project.id]); // Only run when project changes or on mount
 
     // --- Lazy Loading ---
     useEffect(() => {
         if (scene.id && project.id) {
             ProjectService.loadSceneStoryboard(project.id, scene.id).then(res => {
                 if (Array.isArray(res)) {
-                    // Update only if local shots are empty or we want to force refresh?
-                    // The main ScenesPage handles project state. 
-                    // To avoid infinite loops or overwriting, we should be careful.
-                    // But here onUpdate({ storyboard: res }) would trigger parent update.
                     onUpdate({ storyboard: res });
                 }
             });
@@ -379,7 +491,7 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
         return `story-asset://${url}`;
     };
 
-    const handleAutoGenerate = async () => {
+    const handleAutoGenerate = async (count: number) => {
         try {
             const settings = await window.api.getSettings();
             if (!settings.volcEngineApiKey) {
@@ -404,8 +516,8 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
 
             const updateToast = () => {
                 const displayText = streamData.thinking
-                    ? <>{t('storyboard.generatingShots')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
-                    : <>{t('storyboard.generatingShots')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
+                    ? <>{t('storyboard.generatingShots')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
+                    : <>{t('storyboard.generatingShots')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
 
                 message.loading({
                     content: <AIProgressToast
@@ -485,6 +597,7 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                 conflict: scene.conflict,
                 artStyle: project.wordSettings.artStyle,
                 characters: project.characters.map(c => `${c.name}: ${c.appearance}`).join('\n'),
+                shotCount: count,
                 requestId
             });
 
@@ -581,25 +694,23 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
             {/* Toolbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                 <Space>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAddShot()}>{t('storyboard.addShot')}</Button>
-                    <Dropdown.Button
-                        icon={<DownOutlined />}
-                        onClick={() => handleBatchGenerate(false)}
-                        menu={{
-                            items: [
-                                {
-                                    key: 'overwrite',
-                                    label: t('storyboard.overwriteExisting', 'Overwrite Existing Images'),
-                                    onClick: () => handleBatchGenerate(true)
-                                }
-                            ]
-                        }}
-                    >
-                        <ThunderboltOutlined /> {t('storyboard.generateAllShots', 'Generate All Images')}
-                    </Dropdown.Button>
-                    <Button icon={<VideoCameraOutlined />} onClick={handleAutoGenerate}>{t('storyboard.autoGenerate')}</Button>
+                    <Button icon={<PlusOutlined />} onClick={() => handleAddShot()}>{t('storyboard.addShot')}</Button>
+                    <Dropdown menu={{
+                        items: [
+                            { key: 'images', label: t('storyboard.images', 'Images'), onClick: () => handleBatchImageGenerate(false) },
+                            { key: 'images-overwrite', label: t('storyboard.imagesOverwrite', 'Images (overwrite)'), onClick: () => handleBatchImageGenerate(true) },
+                            { type: 'divider' },
+                            { key: 'videos', label: t('storyboard.videos', 'Videos'), onClick: () => handleBatchVideoGenerate(false) },
+                            { key: 'videos-overwrite', label: t('storyboard.videosOverwrite', 'Videos (overwrite)'), onClick: () => handleBatchVideoGenerate(true) },
+                        ]
+                    }}>
+                        <Button>
+                            <ThunderboltOutlined /> {t('storyboard.batchGenerate', 'Batch Generate')} <DownOutlined />
+                        </Button>
+                    </Dropdown>
+                    <Button icon={<VideoCameraOutlined />} onClick={() => setShotCountModalVisible(true)}>{t('storyboard.generateShots')}</Button>
                     <Button onClick={selectAll}>
-                        {selectedIds.size > 0 ? t('common.deselectAll', 'Deselect All') : t('common.selectAll', 'Select All')}
+                        {selectedIds.size > 0 ? t('common.deselectAll') : t('common.selectAll')}
                     </Button>
                 </Space>
                 <Space>
@@ -760,12 +871,18 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                                             onClick={(e) => { e.stopPropagation(); handleGenerateShotImage(shot); }}
                                         />
                                     </Tooltip>
-                                    <Tooltip title={t('storyboard.generateVideo')}>
+                                    <Tooltip title={shot.videoStatus === 'running' ? t('storyboard.stopVideo') : t('storyboard.generateVideo')}>
                                         <Button
                                             shape="circle"
                                             size="small"
-                                            icon={<VideoCameraOutlined />}
+                                            icon={
+                                                shot.videoStatus === 'running' ? (
+                                                    hoverVideoBtnId === shot.id ? <StopOutlined style={{ color: '#ff4d4f' }} /> : <SyncOutlined spin />
+                                                ) : <VideoCameraOutlined />
+                                            }
                                             style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff' }}
+                                            onMouseEnter={() => setHoverVideoBtnId(shot.id)}
+                                            onMouseLeave={() => setHoverVideoBtnId(null)}
                                             onClick={(e) => { e.stopPropagation(); handleGenerateShotVideo(shot); }}
                                         />
                                     </Tooltip>
@@ -847,6 +964,34 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                     controls
                     autoPlay
                 />
+            </Modal>
+
+            {/* Shot Count Modal */}
+            <Modal
+                title={t('storyboard.generateShotsModal.title')}
+                open={shotCountModalVisible}
+                onOk={() => {
+                    setShotCountModalVisible(false);
+                    handleAutoGenerate(desiredShotCount);
+                }}
+                onCancel={() => setShotCountModalVisible(false)}
+                okText={t('common.ok')}
+                cancelText={t('common.cancel')}
+            >
+                <div style={{ padding: '20px 0' }}>
+                    <div style={{ marginBottom: 12 }}>{t('storyboard.generateShotsModal.countLabel')}</div>
+                    <InputNumber
+                        min={1}
+                        max={20}
+                        value={desiredShotCount}
+                        onChange={(val: number | null) => setDesiredShotCount(val || 6)}
+                        style={{ width: '100%' }}
+                        placeholder={t('storyboard.generateShotsModal.countPlaceholder')}
+                    />
+                    <div style={{ marginTop: 8, color: '#888', fontSize: '12px' }}>
+                        {t('storyboard.generateShotsModal.hint')}
+                    </div>
+                </div>
             </Modal>
         </div>
     );

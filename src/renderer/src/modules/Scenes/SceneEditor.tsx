@@ -15,7 +15,7 @@ interface InternalProps {
     onUpdateProject?: (updates: Partial<Project>) => void;
 }
 
-export default function SceneEditor({ project, scene, onUpdate, onUpdateProject }: InternalProps) {
+export default function SceneEditor({ project, scene, onUpdate }: InternalProps) {
     const { t } = useTranslation();
     const [form] = Form.useForm();
     const [selectionVisible, setSelectionVisible] = useState(false);
@@ -68,8 +68,8 @@ export default function SceneEditor({ project, scene, onUpdate, onUpdateProject 
 
             const updateToast = () => {
                 const displayText = streamData.thinking
-                    ? <>{t('scenes.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
-                    : <>{t('scenes.generating')}<br /><br />Thinking process:<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
+                    ? <>{t('scenes.generating')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
+                    : <>{t('scenes.generating')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
 
                 message.loading({
                     content: <AIProgressToast
@@ -132,12 +132,29 @@ export default function SceneEditor({ project, scene, onUpdate, onUpdateProject 
             });
 
             const charactersStr = project.characters.map(c => `${c.name}: ${c.personality}`).join('\n');
+
+            // Find continuity context
+            const allScenes = project.chapters.flatMap(c => c.scenes);
+            const currentIndex = allScenes.findIndex(s => s.id === scene?.id);
+            const prevScene = currentIndex > 0 ? allScenes[currentIndex - 1] : null;
+            const nextScene = currentIndex >= 0 && currentIndex < allScenes.length - 1 ? allScenes[currentIndex + 1] : null;
+
+            const previousSceneText = prevScene
+                ? `Title: ${prevScene.title}\nOutline: ${prevScene.outline || 'Not yet defined.'}\nConflict: ${prevScene.conflict || 'Not yet defined.'}`
+                : 'None (This is the very first scene of the story)';
+
+            const nextSceneText = nextScene
+                ? `Title: ${nextScene.title}\nOutline: ${nextScene.outline || 'Not yet defined.'}\nConflict: ${nextScene.conflict || 'Not yet defined.'}`
+                : 'None (This is the last scene or the next scene is not yet drafted)';
+
             window.api.generateAIStream('scene-outline', {
                 title: scene?.title || '',
                 targetAudience: project.wordSettings.targetAudience,
                 artStyle: project.wordSettings.artStyle,
                 summary: project.wordSettings.summary,
                 characters: charactersStr,
+                previousScene: previousSceneText,
+                nextScene: nextSceneText,
                 requestId
             });
 

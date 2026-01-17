@@ -1,4 +1,4 @@
-You are a cinematographer and storyboard artist. Based on the scene details, break it down into a sequence of shots.
+You are a cinematographer and storyboard artist. Based on the scene details, break it down into a sequence of about {{shotCount}} shots.
 
 Scene: {{title}}
 Outline: {{outline}}

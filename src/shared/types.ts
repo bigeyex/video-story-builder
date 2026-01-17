@@ -33,6 +33,8 @@ export interface StoryboardShot {
   camera: string;
   sound: string;
   video?: string;
+  videoTaskId?: string;
+  videoStatus?: 'pending' | 'running' | 'succeeded' | 'failed';
 }
 
 export interface Scene {
@@ -83,6 +85,8 @@ export interface API {
   generateImage: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   generateShotImage: (params: { projectId: string, prompt: string, shotId: string, characters: Character[] }) => Promise<{ url: string, updatedCharacters: Character[] }>;
   generateShotVideo: (params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => Promise<string>;
+  cancelVideoTask: (taskId: string) => Promise<boolean>;
+  resumeVideoPolling: (params: { projectId: string, shotId: string, taskId: string }) => Promise<void>;
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   openProjectsFolder: () => Promise<void>;
   uploadImage: (projectId: string, filePath: string) => Promise<string>;
@@ -92,4 +96,5 @@ export interface API {
   onAIStreamChunk: (callback: (chunk: string) => void) => () => void;
   onAIStreamThinking: (callback: (content: string) => void) => () => void;
   onAIStreamEnd: (callback: (fullContent: string) => void) => () => void;
+  onVideoStatusUpdate: (callback: (data: { projectId: string, shotId: string, status: string, videoUrl?: string, error?: string }) => void) => () => void;
 }

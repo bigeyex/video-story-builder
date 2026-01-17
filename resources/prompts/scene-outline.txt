@@ -5,6 +5,12 @@ Target Audience: {{targetAudience}}
 Art Style: {{artStyle}}
 Summary: {{summary}}
 
+Previous Scene Context (Important for continuity):
+{{previousScene}}
+
+Next Scene Context (Important for continuity):
+{{nextScene}}
+
 Characters involved: {{characters}}
 
 Scene Title: {{title}}

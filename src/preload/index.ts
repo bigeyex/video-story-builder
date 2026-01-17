@@ -16,6 +16,8 @@ const api = {
   generateImage: (prompt: string, projectId: string, characterId: string) => ipcRenderer.invoke('generate-image', prompt, projectId, characterId),
   generateShotImage: (params: any) => ipcRenderer.invoke('generate-shot-image', params),
   generateShotVideo: (params: any) => ipcRenderer.invoke('generate-shot-video', params),
+  cancelVideoTask: (taskId: string) => ipcRenderer.invoke('cancel-video-task', taskId),
+  resumeVideoPolling: (params: any) => ipcRenderer.invoke('resume-video-polling', params),
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => ipcRenderer.invoke('generate-character-design', prompt, projectId, characterId),
   openProjectsFolder: () => ipcRenderer.invoke('open-projects-folder'),
   uploadImage: (projectId: string, filePath: string) => ipcRenderer.invoke('upload-image', projectId, filePath),
@@ -35,6 +37,11 @@ const api = {
     const listener = (_: any, fullContent: string) => callback(fullContent)
     ipcRenderer.on('ai-stream-end', listener)
     return () => ipcRenderer.removeListener('ai-stream-end', listener)
+  },
+  onVideoStatusUpdate: (callback: (data: any) => void) => {
+    const listener = (_: any, data: any) => callback(data)
+    ipcRenderer.on('video-status-update', listener)
+    return () => ipcRenderer.removeListener('video-status-update', listener)
   }
 }
 

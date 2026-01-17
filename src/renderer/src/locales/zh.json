@@ -11,7 +11,13 @@
     "yes": "是",
     "no": "否",
     "loading": "加载中...",
-    "autoSaveFailed": "自动保存失败"
+    "autoSaveFailed": "自动保存失败",
+    "thinkingProcess": "思考过程：",
+    "error": "错误",
+    "deleteSuccess": "删除成功",
+    "select": "选取",
+    "selectAll": "全选",
+    "deselectAll": "取消全选"
   },
   "worldSettings": {
     "title": "世界观设置",
@@ -112,7 +118,10 @@
     "createTitle": "创建新项目",
     "namePlaceholder": "项目名称",
     "lastModified": "最后修改： ",
-    "openFolder": "打开项目文件夹"
+    "openFolder": "打开项目文件夹",
+    "createSuccess": "项目已创建",
+    "deleteConfirm": "这将永久删除该项目。",
+    "noProjects": "暂无项目。创建一个开始吧。"
   },
   "sidebar": {
     "projects": "项目列表",
@@ -176,12 +185,20 @@
     "aiAssistance": "AI 辅助",
     "noSceneSelected": "选择或创建场景以开始编辑。",
     "generating": "正在生成...",
-    "generated": "已生成！"
+    "generated": "已生成！",
+    "generatedOptions": "已生成选项，请选择一个",
+    "selectOption": "请选择一个故事选项"
   },
   "storyboard": {
     "title": "分镜脚本",
     "addShot": "添加镜头",
-    "autoGenerate": "自动生成",
+    "generateShots": "生成分镜",
+    "generateShotsModal": {
+      "title": "生成分镜",
+      "countLabel": "预期镜头的数量：",
+      "countPlaceholder": "例如 6",
+      "hint": "指定您希望为该场景生成多少个分镜镜头。"
+    },
     "desktop": "桌面端 (16:9)",
     "mobile": "移动端 (9:16)",
     "screenFormat": "屏幕比例",
@@ -210,6 +227,22 @@
     "descriptionGenerated": "描述已生成！",
     "generatingImage": "正在生成图片...",
     "imageGenerated": "图片已生成！",
-    "noShots": "暂无分镜（点击添加镜头按钮或点击自动生成）"
+    "noShots": "暂无分镜（点击添加镜头按钮或点击自动生成）",
+    "generateVideo": "生成视频",
+    "stopVideo": "停止生成",
+    "batchGenerate": "批量生成",
+    "images": "生成图片",
+    "imagesOverwrite": "重造图片",
+    "videos": "生成视频",
+    "videosOverwrite": "重造视频",
+    "batchGeneratingImages": "正在批量生成图片...",
+    "batchGeneratingVideos": "正在批量生成视频...",
+    "noShotsToGenerate": "没有需要生成的镜头",
+    "noShotsToGenerateVideo": "没有带图的镜头需要生成视频",
+    "batchVideoStarted": "已启动 {{count}} 个镜头的批量视频生成。",
+    "batchFinished": "批量生成已成功完成",
+    "batchFinishedWithErrors": "批量生成完成，其中 {{count}} 个失败",
+    "videoGenerated": "视频生成成功",
+    "videoGenerationFailed": "视频生成失败"
   }
 }

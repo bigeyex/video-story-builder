@@ -11,7 +11,13 @@
     "yes": "Yes",
     "no": "No",
     "loading": "Loading...",
-    "autoSaveFailed": "Auto-save failed"
+    "autoSaveFailed": "Auto-save failed",
+    "thinkingProcess": "Thinking process:",
+    "error": "Error",
+    "deleteSuccess": "Deleted successfully",
+    "select": "Select",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All"
   },
   "worldSettings": {
     "title": "World Settings",
@@ -112,7 +118,10 @@
     "createTitle": "Create New Project",
     "namePlaceholder": "Project Name",
     "lastModified": "Last modified: ",
-    "openFolder": "Open Projects Folder"
+    "openFolder": "Open Projects Folder",
+    "createSuccess": "Project created",
+    "deleteConfirm": "This will permanently delete the project.",
+    "noProjects": "No projects yet. Create one to get started."
   },
   "sidebar": {
     "projects": "Projects",
@@ -176,12 +185,20 @@
     "aiAssistance": "AI Assistance",
     "noSceneSelected": "Select or create a scene to start editing.",
     "generating": "Generating...",
-    "generated": "Generated!"
+    "generated": "Generated!",
+    "generatedOptions": "Options generated, please select one",
+    "selectOption": "Select a Story Option"
   },
   "storyboard": {
     "title": "Storyboard",
     "addShot": "Add Shot",
-    "autoGenerate": "Auto-Generate",
+    "generateShots": "Generate Shots",
+    "generateShotsModal": {
+      "title": "Generate Shots",
+      "countLabel": "Number of shots to generate:",
+      "countPlaceholder": "e.g. 6",
+      "hint": "Specify how many shots you want for this scene."
+    },
     "desktop": "Desktop (16:9)",
     "mobile": "Mobile (9:16)",
     "screenFormat": "Screen Format",
@@ -210,6 +227,22 @@
     "descriptionGenerated": "Description generated!",
     "generatingImage": "Generating image...",
     "imageGenerated": "Image generated!",
-    "noShots": "No shots yet (Click Add Shot button to add or use Auto-Generate)"
+    "noShots": "No shots yet (Click Add Shot button to add or use Auto-Generate)",
+    "generateVideo": "Generate Video",
+    "stopVideo": "Stop Generation",
+    "batchGenerate": "Batch Generate",
+    "images": "Images",
+    "imagesOverwrite": "Images (overwrite)",
+    "videos": "Videos",
+    "videosOverwrite": "Videos (overwrite)",
+    "batchGeneratingImages": "Batch generating images...",
+    "batchGeneratingVideos": "Batch generating videos...",
+    "noShotsToGenerate": "No shots need generation",
+    "noShotsToGenerateVideo": "No shots with images need video generation",
+    "batchVideoStarted": "Batch video generation started for {{count}} shots.",
+    "batchFinished": "Batch generation finished successfully",
+    "batchFinishedWithErrors": "Batch finished with {{count}} errors",
+    "videoGenerated": "Video generated successfully",
+    "videoGenerationFailed": "Video generation failed"
   }
 }
