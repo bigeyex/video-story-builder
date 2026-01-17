@@ -522,39 +522,42 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
       throw new Error('API Key not configured')
     }
 
-    const client = new OpenAI({
-      apiKey: settings.volcEngineApiKey,
-      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
-    })
 
-    // 1. Prepare Image ID if possible
-    let imageId: string | undefined;
+
+    // 1. Prepare Image Base64
+    let imageDataUrl = '';
     if (imageUrl) {
         try {
             const relativePath = imageUrl.replace('story-asset://', '');
             const fullPath = join(PROJECT_DIR, relativePath);
             
-            const { createReadStream } = require('fs');
-            const fileStream = createReadStream(fullPath);
-
-            const fileRes = await client.files.create({
-                file: fileStream,
-                purpose: 'user_data' 
-            });
-            imageId = fileRes.id;
-            console.log(`Uploaded reference image for video: ${imageId}`);
+            const ext = path.extname(fullPath).toLowerCase().replace('.', '') || 'png';
+            const format = ext === 'jpg' ? 'jpeg' : ext;
+            const buffer = await fs.readFile(fullPath);
+            const base64 = buffer.toString('base64');
+            imageDataUrl = `data:image/${format};base64,${base64}`;
+            
+            console.log(`Encoded reference image for video: ${fullPath} (${format})`);
         } catch (e) {
-            console.error('Failed to upload reference image for video:', e);
+            console.error('Failed to encode reference image for video:', e);
         }
     }
 
     // 2. Create Video Task
     const requestBody = {
         model: videoModelId,
-        content: {
-            text: prompt,
-            image_id: imageId
-        }
+        content: [
+            {
+                "type": "image_url",
+                "image_url": {
+                  "url": imageDataUrl
+                }
+            },
+            {
+                "type": "text",
+                "text": prompt
+            }
+        ]
     };
 
     const createTaskRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks', {
@@ -577,10 +580,10 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
 
     // 3. Poll for Status
     let videoUrl = '';
-    const pollStart = Date.now();
-    const timeout = 15 * 60 * 1000; // 15 minutes
+    let pollCount = 0;
 
-    while (Date.now() - pollStart < timeout) {
+    while (true) {
+        pollCount++;
         const statusRes = await fetch(`https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/${taskId}`, {
             headers: {
                 'Authorization': `Bearer ${settings.volcEngineApiKey}`
@@ -588,15 +591,25 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
         });
 
         if (!statusRes.ok) {
-            console.warn(`Polling failed for task ${taskId}, retrying...`);
+            console.warn(`[Poll ${pollCount}] Polling failed for task ${taskId}, retrying...`);
         } else {
             const statusData: any = await statusRes.json();
             const status = statusData.status;
+            console.log(`[Poll ${pollCount}] Task ${taskId} status: ${status}`);
             
             if (status === 'succeeded') {
-                videoUrl = statusData.video_url;
-                break;
+                // Try to extract video URL from different possible locations
+                videoUrl = statusData.content.video_url;
+                
+                if (videoUrl) {
+                    console.log(`[Poll ${pollCount}] Extracted video URL: ${videoUrl}`);
+                    break;
+                } else {
+                    console.error(`[Poll ${pollCount}] Task succeeded but video_url is missing from response.`);
+                    throw new Error('Video generation succeeded but video URL was not found in response');
+                }
             } else if (status === 'failed') {
+                console.error(`[Poll ${pollCount}] Video generation failed:`, JSON.stringify(statusData, null, 2));
                 throw new Error(`Video generation failed: ${statusData.error_message || 'Unknown error'}`);
             }
         }
@@ -604,7 +617,7 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
 
-    if (!videoUrl) throw new Error('Video generation timed out');
+    if (!videoUrl) throw new Error('Video URL not found in response');
 
     // 4. Save Video Locally
     try {
