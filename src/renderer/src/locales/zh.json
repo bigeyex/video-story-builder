@@ -133,7 +133,10 @@
   "characters": {
     "title": "角色管理",
     "addCharacter": "添加角色",
-    "aiGenerate": "AI 生成",
+    "aiGenerate": "生成角色",
+    "batchGenerateAssets": "生成设计图",
+    "batchGeneratingAssets": "正在批量生成角色素材...",
+    "batchGenerateSuccess": "角色素材批量生成完成",
     "emptySelection": "选择一个角色以编辑详情",
     "name": "姓名",
     "background": "背景",

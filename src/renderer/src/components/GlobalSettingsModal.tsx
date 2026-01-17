@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SettingsService } from '../services/SettingsService';
 import { GlobalSettings } from '../../../shared/types';
+import { DEFAULT_MODELS, OLD_DEFAULT_MODELS } from '../../../shared/constants';
 
 interface InternalProps {
     open: boolean;
@@ -23,13 +24,17 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
     const loadSettings = async () => {
         try {
             const s = await SettingsService.getSettings();
-            // Provide defaults for new fields if missing
+            // Provide defaults for new fields if missing, and upgrade old defaults
+            const textModelId = s.textModelId || DEFAULT_MODELS.text;
+            const imageModelId = s.imageModelId || DEFAULT_MODELS.image;
+            const videoModelId = s.videoModelId || DEFAULT_MODELS.video;
+
             const defaults: GlobalSettings = {
                 provider: s.provider || 'VolcEngine',
                 volcEngineApiKey: s.volcEngineApiKey || '',
-                textModelId: s.textModelId || 'doubao-seed-1-6-251015',
-                imageModelId: s.imageModelId || 'doubao-seedream-4-5-251128',
-                videoModelId: s.videoModelId || 'doubao-seedance-1-5-pro-251215',
+                textModelId: OLD_DEFAULT_MODELS.includes(textModelId) ? DEFAULT_MODELS.text : textModelId,
+                imageModelId: OLD_DEFAULT_MODELS.includes(imageModelId) ? DEFAULT_MODELS.image : imageModelId,
+                videoModelId: OLD_DEFAULT_MODELS.includes(videoModelId) ? DEFAULT_MODELS.video : videoModelId,
                 language: s.language || i18n.language
             };
             form.setFieldsValue(defaults);
@@ -105,21 +110,21 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
                     label={t('settings.textModelId')}
                     rules={[{ required: true }]}
                 >
-                    <Input placeholder="doubao-seed-1-6-251015" />
+                    <Input placeholder={DEFAULT_MODELS.text} />
                 </Form.Item>
                 <Form.Item
                     name="imageModelId"
                     label={t('settings.imageModelId')}
                     rules={[{ required: true }]}
                 >
-                    <Input placeholder="doubao-seedream-4-5-251128" />
+                    <Input placeholder={DEFAULT_MODELS.image} />
                 </Form.Item>
                 <Form.Item
                     name="videoModelId"
                     label={t('settings.videoModelId')}
                     rules={[{ required: true }]}
                 >
-                    <Input placeholder="doubao-seedance-1-5-pro-251215" />
+                    <Input placeholder={DEFAULT_MODELS.video} />
                 </Form.Item>
             </Form>
         </Modal>

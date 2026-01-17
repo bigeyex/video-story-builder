@@ -7,7 +7,8 @@ import { Project, Character, Relationship } from '../../../../shared/types';
 import CharacterGraph from './CharacterGraph';
 import CharacterDetails from './CharacterDetails';
 import CharacterGeneratorModal from './CharacterGeneratorModal';
-import { PlusOutlined, RobotOutlined } from '@ant-design/icons';
+import { PlusOutlined, RobotOutlined, PictureOutlined } from '@ant-design/icons';
+import { AIProgressToast } from '../../utils/AIUtils';
 
 const { Content, Sider } = Layout;
 
@@ -17,6 +18,7 @@ export default function CharactersPage() {
     const [project, setProject] = useState<Project | null>(null);
     const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
     const [genModalOpen, setGenModalOpen] = useState(false);
+    const [batchLoading, setBatchLoading] = useState(false);
 
     // Debounced save ref
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -35,56 +37,128 @@ export default function CharactersPage() {
         }
     };
 
-    const updateProject = (chars: Character[], rels: Relationship[]) => {
-        if (!project) return;
-        const updated = { ...project, characters: chars, relationships: rels };
-        setProject(updated);
+    const updateProjectState = (updater: (prev: Project) => Project) => {
+        setProject(prev => {
+            if (!prev) return null;
+            const updated = updater(prev);
 
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = setTimeout(() => saveProject(updated), 1000);
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = setTimeout(() => saveProject(updated), 1000);
+
+            return updated;
+        });
+    };
+
+    const handleBatchGenerateAssets = async () => {
+        if (!project) return;
+
+        const charactersToFix = project.characters.filter(c => !c.avatar || !c.characterDesign);
+        if (charactersToFix.length === 0) {
+            message.info(t('storyboard.noShotsToGenerate', 'No missing assets to generate'));
+            return;
+        }
+
+        setBatchLoading(true);
+        let isCancelled = false;
+        const handleStop = () => { isCancelled = true; };
+
+        message.loading({
+            content: <AIProgressToast text={t('characters.batchGeneratingAssets')} onStop={handleStop} />,
+            key: 'batch-chars',
+            duration: 0
+        });
+
+        try {
+            for (const char of charactersToFix) {
+                if (isCancelled) break;
+
+                let updatedAvatar = char.avatar;
+                let updatedDesign = char.characterDesign;
+
+                // 1. Generate Avatar if missing
+                if (!updatedAvatar) {
+                    const prompt = `Character avatar for ${char.name}: ${char.appearance || ''}, ${char.personality || ''}. Art Style: ${project.wordSettings.artStyle || 'Cinematic'}.`;
+                    try {
+                        updatedAvatar = await window.api.generateImage(prompt, project.id, char.id);
+                        handleUpdateCharacter(char.id, { avatar: updatedAvatar });
+                    } catch (e) {
+                        console.error(`Failed to generate avatar for ${char.name}`, e);
+                    }
+                }
+
+                if (isCancelled) break;
+
+                // 2. Generate Design if missing
+                if (!updatedDesign) {
+                    const prompt = `Character ${char.name}: ${char.appearance || ''}, ${char.personality || ''}. Art Style: ${project.wordSettings.artStyle || 'Cinematic'}.`;
+                    try {
+                        updatedDesign = await window.api.generateCharacterDesign(prompt, project.id, char.id);
+                        handleUpdateCharacter(char.id, { characterDesign: updatedDesign });
+                    } catch (e) {
+                        console.error(`Failed to generate design for ${char.name}`, e);
+                    }
+                }
+            }
+
+            if (!isCancelled) {
+                message.success({ content: t('characters.batchGenerateSuccess'), key: 'batch-chars' });
+            } else {
+                message.info({ content: t('scenes.cancelled'), key: 'batch-chars' });
+            }
+        } catch (e) {
+            message.error({ content: t('characters.failed') + e, key: 'batch-chars' });
+        } finally {
+            setBatchLoading(false);
+        }
     };
 
     const handleAddCharacter = () => {
-        if (!project) return;
-        const newChar: Character = {
-            id: `char-${Date.now()}`,
-            name: `${t('characters.title')} ${project.characters.length + 1}`,
-            background: '',
-            personality: '',
-            appearance: '',
-            position: { x: 100, y: 100 }
-        };
-        updateProject([...project.characters, newChar], project.relationships);
-        setSelectedCharId(newChar.id);
+        updateProjectState(prev => {
+            const newChar: Character = {
+                id: `char-${Date.now()}`,
+                name: `${t('characters.title')} ${prev.characters.length + 1}`,
+                background: '',
+                personality: '',
+                appearance: '',
+                position: { x: 100, y: 100 }
+            };
+            setSelectedCharId(newChar.id);
+            return { ...prev, characters: [...prev.characters, newChar] };
+        });
     };
 
     const handleUpdateCharacter = (id: string, updates: Partial<Character>) => {
-        if (!project) return;
-        const updatedChars = project.characters.map(c => c.id === id ? { ...c, ...updates } : c);
-        updateProject(updatedChars, project.relationships);
+        updateProjectState(prev => ({
+            ...prev,
+            characters: prev.characters.map(c => c.id === id ? { ...c, ...updates } : c)
+        }));
     };
 
     const handleDeleteCharacter = (id: string) => {
-        if (!project) return;
-        const updatedChars = project.characters.filter(c => c.id !== id);
-        const updatedRels = project.relationships.filter(r => r.source !== id && r.target !== id);
-        updateProject(updatedChars, updatedRels);
-        if (selectedCharId === id) setSelectedCharId(null);
+        updateProjectState(prev => {
+            if (selectedCharId === id) setSelectedCharId(null);
+            return {
+                ...prev,
+                characters: prev.characters.filter(c => c.id !== id),
+                relationships: prev.relationships.filter(r => r.source !== id && r.target !== id)
+            };
+        });
     };
 
     const handleSelectGenerated = (candidate: Partial<Character>) => {
-        if (!project) return;
-        const newChar: Character = {
-            id: `char-${Date.now()}`,
-            name: candidate.name || t('characters.aiCharacter'),
-            background: candidate.background || '',
-            personality: candidate.personality || '',
-            appearance: candidate.appearance || '',
-            position: { x: 100 + Math.random() * 50, y: 100 + Math.random() * 50 }
-        };
-        updateProject([...project.characters, newChar], project.relationships);
-        setSelectedCharId(newChar.id);
-        message.success(t('characters.characterAdded'));
+        updateProjectState(prev => {
+            const newChar: Character = {
+                id: `char-${Date.now()}`,
+                name: candidate.name || t('characters.aiCharacter'),
+                background: candidate.background || '',
+                personality: candidate.personality || '',
+                appearance: candidate.appearance || '',
+                position: { x: 100 + Math.random() * 50, y: 100 + Math.random() * 50 }
+            };
+            setSelectedCharId(newChar.id);
+            message.success(t('characters.characterAdded'));
+            return { ...prev, characters: [...prev.characters, newChar] };
+        });
     };
 
     if (!project) return <div>Loading...</div>;
@@ -97,13 +171,14 @@ export default function CharactersPage() {
                 <CharacterGraph
                     characters={project.characters}
                     relationships={project.relationships}
-                    onUpdate={updateProject}
+                    onUpdate={(chars, rels) => updateProjectState(prev => ({ ...prev, characters: chars, relationships: rels }))}
                     onSelect={setSelectedCharId}
                     selectedId={selectedCharId}
                 />
                 <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, display: 'flex', gap: 8 }}>
                     <Button type="primary" icon={<PlusOutlined />} onClick={handleAddCharacter}>{t('characters.addCharacter')}</Button>
                     <Button icon={<RobotOutlined />} onClick={() => setGenModalOpen(true)}>{t('characters.aiGenerate')}</Button>
+                    <Button icon={<PictureOutlined />} loading={batchLoading} onClick={handleBatchGenerateAssets}>{t('characters.batchGenerateAssets')}</Button>
                 </div>
             </Content>
             <Sider width={350} theme="dark" style={{ borderLeft: '1px solid #333' }}>

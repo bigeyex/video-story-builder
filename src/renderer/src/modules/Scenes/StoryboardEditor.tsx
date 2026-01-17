@@ -19,10 +19,11 @@ interface InternalProps {
     project: Project;
     scene: Scene | null;
     onUpdate: (updates: Partial<Scene>) => void;
+    onUpdateShot?: (shotId: string, updates: Partial<StoryboardShot>) => void;
     onUpdateProject?: (updates: Partial<Project>) => void;
 }
 
-export default function StoryboardEditor({ project, scene, onUpdate, onUpdateProject }: InternalProps) {
+export default function StoryboardEditor({ project, scene, onUpdate, onUpdateShot, onUpdateProject }: InternalProps) {
     const { t } = useTranslation();
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -425,7 +426,11 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
     };
 
     const handleFieldChange = (id: string, field: keyof StoryboardShot, value: any) => {
-        updateShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
+        if (onUpdateShot) {
+            onUpdateShot(id, { [field]: value });
+        } else {
+            updateShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
+        }
     };
 
     // --- Listen to Video Status Updates ---

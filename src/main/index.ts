@@ -7,6 +7,7 @@ import * as fs from 'fs/promises'
 // Node's crypto
 import { randomUUID } from 'crypto'
 import OpenAI from 'openai'
+import { DEFAULT_MODELS, OLD_DEFAULT_MODELS } from '../shared/constants'
 
 // Use current working directory or executable path for portable feel
 // In dev, use app.getAppPath() or similar. In prod, use relative to exe.
@@ -132,10 +133,13 @@ ipcMain.handle('cancel-ai', (_, requestId: string) => {
 })
 
 ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
-  // 1. Get Settings
   const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
   const settings = JSON.parse(settingsStr)
-  const textModelId = settings.textModelId || settings.volcEngineModel || 'doubao-seed-1-6-251015'
+  
+  let textModelId = settings.textModelId || settings.volcEngineModel || DEFAULT_MODELS.text
+  if (OLD_DEFAULT_MODELS.includes(textModelId)) {
+    textModelId = DEFAULT_MODELS.text
+  }
   
   if (!settings.volcEngineApiKey) {
     throw new Error('API Key not configured')
@@ -194,7 +198,11 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
   try {
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
-    const textModelId = settings.textModelId || settings.volcEngineModel || 'doubao-seed-1-6-251015'
+    
+    let textModelId = settings.textModelId || settings.volcEngineModel || DEFAULT_MODELS.text
+    if (OLD_DEFAULT_MODELS.includes(textModelId)) {
+      textModelId = DEFAULT_MODELS.text
+    }
     
     if (!settings.volcEngineApiKey) {
       throw new Error('API Key not configured')
@@ -266,7 +274,10 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
   ipcMain.handle('generate-image', async (_, prompt: string, projectId: string, characterId: string) => {
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
-    const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+    let imageModelId = settings.imageModelId || DEFAULT_MODELS.image
+    if (OLD_DEFAULT_MODELS.includes(imageModelId)) {
+      imageModelId = DEFAULT_MODELS.image
+    }
 
     if (!settings.volcEngineApiKey) {
       throw new Error('API Key not configured')
@@ -309,7 +320,10 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
   ipcMain.handle('generate-character-design', async (_, prompt: string, projectId: string, characterId: string) => {
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
-    const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+    let imageModelId = settings.imageModelId || DEFAULT_MODELS.image
+    if (OLD_DEFAULT_MODELS.includes(imageModelId)) {
+      imageModelId = DEFAULT_MODELS.image
+    }
 
     if (!settings.volcEngineApiKey) {
       throw new Error('API Key not configured')
@@ -358,7 +372,10 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     const settings = JSON.parse(settingsStr)
     // Use user settings or default to a model that supports reference images if possible
     // Doubao-Seedream-4.5 supports multi-reference
-    const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+    let imageModelId = settings.imageModelId || DEFAULT_MODELS.image
+    if (OLD_DEFAULT_MODELS.includes(imageModelId)) {
+      imageModelId = DEFAULT_MODELS.image
+    }
 
     if (!settings.volcEngineApiKey) {
       throw new Error('API Key not configured')
@@ -603,7 +620,10 @@ async function startVideoPolling(params: {
     const { projectId, prompt, shotId, imageUrl } = params;
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
-    const videoModelId = settings.videoModelId || 'doubao-seedance-pro-sub-251015'
+    let videoModelId = settings.videoModelId || DEFAULT_MODELS.video
+    if (OLD_DEFAULT_MODELS.includes(videoModelId)) {
+      videoModelId = DEFAULT_MODELS.video
+    }
 
     if (!settings.volcEngineApiKey) {
       throw new Error('API Key not configured')

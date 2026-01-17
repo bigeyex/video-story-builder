@@ -35,7 +35,7 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
         if (character) onUpdate(character.id, changedValues);
     };
 
-    const handleGenerateCharacterDesign = async (isChained = false) => {
+    const handleGenerateCharacterDesign = async () => {
         if (!character) return;
         let isCancelled = false;
         const handleStop = () => {
@@ -89,7 +89,7 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
             message.success({ content: t('characters.avatarGenerated'), key: 'avatar' });
 
             // Chain character design generation
-            handleGenerateCharacterDesign(true);
+            handleGenerateCharacterDesign();
         } catch (e) {
             if (!isCancelled) {
                 message.error({ content: t('characters.failed') + e, key: 'avatar' });

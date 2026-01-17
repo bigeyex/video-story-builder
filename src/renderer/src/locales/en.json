@@ -133,7 +133,10 @@
   "characters": {
     "title": "Characters",
     "addCharacter": "Add Character",
-    "aiGenerate": "AI Generate",
+    "aiGenerate": "Generate Characters",
+    "batchGenerateAssets": "Generate Designs",
+    "batchGeneratingAssets": "Batch generating character assets...",
+    "batchGenerateSuccess": "Character assets batch generation finished",
     "emptySelection": "Select a character to edit details",
     "name": "Name",
     "background": "Background",
