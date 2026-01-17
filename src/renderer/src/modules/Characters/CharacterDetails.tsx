@@ -5,6 +5,8 @@ import { Character, Project } from '../../../../shared/types';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AIProgressToast } from '../../utils/AIUtils';
+
 const { TextArea } = Input;
 
 interface InternalProps {
@@ -33,33 +35,65 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
         if (character) onUpdate(character.id, changedValues);
     };
 
-    const handleGenerateCharacterDesign = async () => {
+    const handleGenerateCharacterDesign = async (isChained = false) => {
         if (!character) return;
+        let isCancelled = false;
+        const handleStop = () => {
+            isCancelled = true;
+            message.destroy('design');
+            message.info(t('scenes.cancelled', 'Generation cancelled'));
+        };
+
         try {
-            message.loading({ content: t('characters.generatingCharacterDesign'), key: 'design', duration: 0 });
+            message.loading({
+                content: <AIProgressToast text={t('characters.generatingCharacterDesign')} onStop={handleStop} />,
+                key: 'design',
+                duration: 0
+            });
             const prompt = `Character ${character.name}: ${character.appearance}, ${character.personality}. Art Style: ${project.wordSettings.artStyle || 'Cinematic'}.`;
             const url = await window.api.generateCharacterDesign(prompt, project.id, character.id);
+
+            if (isCancelled) return;
+
             onUpdate(character.id, { characterDesign: url });
             message.success({ content: t('characters.characterDesignGenerated'), key: 'design' });
+            return url;
         } catch (e) {
-            message.error({ content: t('characters.failed') + e, key: 'design' });
+            if (!isCancelled) {
+                message.error({ content: t('characters.failed') + e, key: 'design' });
+            }
         }
     };
 
     const handleGenerateAvatar = async () => {
         if (!character) return;
+        let isCancelled = false;
+        const handleStop = () => {
+            isCancelled = true;
+            message.destroy('avatar');
+            message.info(t('scenes.cancelled', 'Generation cancelled'));
+        };
+
         try {
-            message.loading({ content: t('characters.generatingAvatar'), key: 'avatar', duration: 0 });
+            message.loading({
+                content: <AIProgressToast text={t('characters.generatingAvatar')} onStop={handleStop} />,
+                key: 'avatar',
+                duration: 0
+            });
             const prompt = `Character avatar for ${character.name}: ${character.appearance}, ${character.personality}. Art Style: ${project.wordSettings.artStyle || 'Cinematic'}.`;
             const url = await window.api.generateImage(prompt, project.id, character.id);
-            // Result is already relative or story-asset:// from main process
+
+            if (isCancelled) return;
+
             onUpdate(character.id, { avatar: url });
             message.success({ content: t('characters.avatarGenerated'), key: 'avatar' });
 
             // Chain character design generation
-            handleGenerateCharacterDesign();
+            handleGenerateCharacterDesign(true);
         } catch (e) {
-            message.error({ content: t('characters.failed') + e, key: 'avatar' });
+            if (!isCancelled) {
+                message.error({ content: t('characters.failed') + e, key: 'avatar' });
+            }
         }
     };
 
@@ -174,7 +208,7 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
                             <Upload beforeUpload={handleUploadCharacterDesign} showUploadList={false}>
                                 <Button icon={<UploadOutlined />}>{t('characters.uploadCharacterDesign')}</Button>
                             </Upload>
-                            <Button icon={<PictureOutlined />} onClick={handleGenerateCharacterDesign}>
+                            <Button icon={<PictureOutlined />} onClick={() => handleGenerateCharacterDesign()}>
                                 {t('characters.generateCharacterDesign')}
                             </Button>
                         </div>

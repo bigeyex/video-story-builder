@@ -3,7 +3,7 @@ import {
     PlusOutlined, VideoCameraOutlined, MoreOutlined, RobotOutlined,
     ScissorOutlined, CopyOutlined, SnippetsOutlined,
     ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined,
-    UploadOutlined, ThunderboltOutlined
+    UploadOutlined, ThunderboltOutlined, DownOutlined
 } from '@ant-design/icons';
 import { ProjectService } from '../../services/ProjectService';
 import { AIProgressToast } from '../../utils/AIUtils';
@@ -253,6 +253,60 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
         }
     };
 
+    const handleBatchGenerate = async (overwrite: boolean) => {
+        const shotsToGenerate = shots.filter(s => overwrite || !s.image);
+        if (shotsToGenerate.length === 0) {
+            message.info(t('storyboard.noShotsToGenerate', 'No shots need generation'));
+            return;
+        }
+
+        let isCancelled = false;
+        const handleStop = () => {
+            isCancelled = true;
+            message.destroy('batch-gen');
+            message.info(t('scenes.cancelled', 'Batch generation cancelled'));
+        };
+
+        message.loading({
+            content: <AIProgressToast text={t('storyboard.batchGenerating', 'Starting batch generation...')} onStop={handleStop} />,
+            key: 'batch-gen',
+            duration: 0
+        });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const shot of shotsToGenerate) {
+            if (isCancelled) break;
+
+            // Update toast with current progress
+            message.loading({
+                content: <AIProgressToast
+                    text={`${t('storyboard.batchGenerating')} (${successCount + failCount + 1}/${shotsToGenerate.length})`}
+                    onStop={handleStop}
+                />,
+                key: 'batch-gen',
+                duration: 0
+            });
+
+            try {
+                await handleGenerateShotImage(shot);
+                successCount++;
+            } catch (e) {
+                console.error(`Failed to generate shot ${shot.id}:`, e);
+                failCount++;
+            }
+        }
+
+        if (isCancelled) return;
+
+        if (failCount === 0) {
+            message.success({ content: t('storyboard.batchFinished', 'Batch generation finished successfully'), key: 'batch-gen' });
+        } else {
+            message.warning({ content: t('storyboard.batchFinishedWithErrors', `Batch finished with ${failCount} errors`), key: 'batch-gen' });
+        }
+    };
+
     const handleFieldChange = (id: string, field: keyof StoryboardShot, value: any) => {
         updateShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
     };
@@ -481,6 +535,21 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                 <Space>
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAddShot()}>{t('storyboard.addShot')}</Button>
+                    <Dropdown.Button
+                        icon={<DownOutlined />}
+                        onClick={() => handleBatchGenerate(false)}
+                        menu={{
+                            items: [
+                                {
+                                    key: 'overwrite',
+                                    label: t('storyboard.overwriteExisting', 'Overwrite Existing Images'),
+                                    onClick: () => handleBatchGenerate(true)
+                                }
+                            ]
+                        }}
+                    >
+                        <ThunderboltOutlined /> {t('storyboard.generateAllShots', 'Generate All Images')}
+                    </Dropdown.Button>
                     <Button icon={<VideoCameraOutlined />} onClick={handleAutoGenerate}>{t('storyboard.autoGenerate')}</Button>
                     <Button onClick={selectAll}>
                         {selectedIds.size > 0 ? t('common.deselectAll', 'Deselect All') : t('common.selectAll', 'Select All')}

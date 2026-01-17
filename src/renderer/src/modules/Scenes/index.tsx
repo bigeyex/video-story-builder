@@ -19,7 +19,7 @@ export default function ScenesPage() {
     const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
 
     // Sidebar State
-    const [siderWidth, setSiderWidth] = useState(300);
+    const [siderWidth, setSiderWidth] = useState(MIN_SIDER_WIDTH);
     const [collapsed, setCollapsed] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
