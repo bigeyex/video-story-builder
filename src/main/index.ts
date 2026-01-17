@@ -304,6 +304,52 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     }
   })
 
+  ipcMain.handle('generate-character-design', async (_, prompt: string, projectId: string, characterId: string) => {
+    const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(settingsStr)
+    const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+
+    if (!settings.volcEngineApiKey) {
+      throw new Error('API Key not configured')
+    }
+
+    const client = new OpenAI({
+      apiKey: settings.volcEngineApiKey,
+      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+    })
+
+    // Generate a comprehensive character design sheet
+    const designPrompt = `Character design sheet with three distinct views: Front, Side, and Back. ${prompt}. Full body character design. The three views must be standing side-by-side with clear separation and NO OVERLAP. Clean white background. Professional concept art style.`
+
+    const response = await client.images.generate({
+      model: imageModelId,
+      prompt: designPrompt,
+      n: 1,
+      size: '2048x2048' as any
+    });
+
+    const url = response.data?.[0]?.url || '';
+    if (!url || !projectId || !characterId) return url;
+
+    try {
+      const designDir = join(PROJECT_DIR, projectId, 'designs');
+      await fs.mkdir(designDir, { recursive: true });
+      
+      const fileName = `${characterId}_design_${Date.now()}.png`;
+      const filePath = join(designDir, fileName);
+      
+      const imgRes = await fetch(url);
+      const buffer = await imgRes.arrayBuffer();
+      await fs.writeFile(filePath, Buffer.from(buffer));
+      
+      // Return relative path: {projectId}/designs/{fileName}
+      return `${projectId}/designs/${fileName}`;
+    } catch (e) {
+      console.error('Failed to save character design locally:', e);
+      return url;
+    }
+  })
+
   ipcMain.handle('upload-image', async (_, projectId: string, filePath: string) => {
     const { nativeImage } = require('electron')
     try {
@@ -447,19 +493,22 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     const scenesDir = join(projectDir, 'scenes')
     await fs.mkdir(scenesDir, { recursive: true })
 
-    // Split storyboards
+    // Split storyboards and collect save promises
+    const savePromises: Promise<void>[] = []
     const chapters = project.chapters.map(chap => ({
       ...chap,
       scenes: chap.scenes.map(scene => {
         const { storyboard, ...sceneRest } = scene
-        if (storyboard) {
+        if (storyboard && storyboard.length > 0) {
           const sceneFile = join(scenesDir, `${scene.id}.json`)
           // Save storyboard separately
-          fs.writeFile(sceneFile, JSON.stringify(storyboard, null, 2))
+          savePromises.push(fs.writeFile(sceneFile, JSON.stringify(storyboard, null, 2)))
         }
         return { ...sceneRest, storyboard: [] } // Empty in project.json
       })
     }))
+
+    await Promise.all(savePromises)
 
     const updatedProject = { ...project, chapters, lastModified: timestamp }
     await fs.writeFile(join(projectDir, 'project.json'), JSON.stringify(updatedProject, null, 2))

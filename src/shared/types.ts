@@ -9,6 +9,7 @@ export interface Character {
   id: string;
   name: string;
   avatar?: string;
+  characterDesign?: string;
   background: string;
   personality: string;
   appearance: string;
@@ -78,6 +79,7 @@ export interface API {
   saveSettings: (settings: GlobalSettings) => Promise<boolean>;
   generateAI: (type: string, params: any) => Promise<any>;
   generateImage: (prompt: string, projectId: string, characterId: string) => Promise<string>;
+  generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   openProjectsFolder: () => Promise<void>;
   uploadImage: (projectId: string, filePath: string) => Promise<string>;
   loadSceneStoryboard: (projectId: string, sceneId: string) => Promise<StoryboardShot[]>;
