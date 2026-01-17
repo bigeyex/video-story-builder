@@ -32,6 +32,7 @@ export interface StoryboardShot {
   duration: number;
   camera: string;
   sound: string;
+  video?: string;
 }
 
 export interface Scene {
@@ -81,6 +82,7 @@ export interface API {
   generateAI: (type: string, params: any) => Promise<any>;
   generateImage: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   generateShotImage: (params: { projectId: string, prompt: string, shotId: string, characters: Character[] }) => Promise<{ url: string, updatedCharacters: Character[] }>;
+  generateShotVideo: (params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => Promise<string>;
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   openProjectsFolder: () => Promise<void>;
   uploadImage: (projectId: string, filePath: string) => Promise<string>;

@@ -1,9 +1,9 @@
-import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip, Upload } from 'antd';
+import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip, Upload, Modal } from 'antd';
 import {
     PlusOutlined, VideoCameraOutlined, MoreOutlined, RobotOutlined,
     ScissorOutlined, CopyOutlined, SnippetsOutlined,
     ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined,
-    UploadOutlined, ThunderboltOutlined, DownOutlined
+    UploadOutlined, ThunderboltOutlined, DownOutlined, PlayCircleOutlined
 } from '@ant-design/icons';
 import { ProjectService } from '../../services/ProjectService';
 import { AIProgressToast } from '../../utils/AIUtils';
@@ -29,6 +29,53 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
     const [clipboard, setClipboard] = useState<StoryboardShot[]>([]);
 
     if (!scene) return <div>{t('common.selectScene', 'Select a scene')}</div>;
+
+    const [previewVideo, setPreviewVideo] = useState<string | null>(null);
+    const [hoverShotId, setHoverShotId] = useState<string | null>(null);
+
+    const handleGenerateShotVideo = async (shot: StoryboardShot) => {
+        try {
+            const settings = await window.api.getSettings();
+            if (!settings.volcEngineApiKey) {
+                message.error(t('common.error', 'No API Key'));
+                return;
+            }
+
+            if (!shot.image) {
+                message.warning(t('storyboard.noImageForVideo', 'Please generate or upload an image first'));
+                return;
+            }
+
+            let isCancelled = false;
+            const handleStop = () => {
+                isCancelled = true;
+                message.destroy('shot-ai-video');
+                message.info(t('scenes.cancelled', 'Generation cancelled'));
+            };
+
+            message.loading({
+                content: <AIProgressToast text={t('storyboard.generatingVideo', 'Generating video...')} onStop={handleStop} />,
+                key: 'shot-ai-video',
+                duration: 0
+            });
+
+            const prompt = `Style consistent with the image. Shot Description: ${shot.description}. Camera: ${shot.camera}. Movement: smooth animation.`;
+
+            const videoUrl = await window.api.generateShotVideo({
+                projectId: project.id,
+                prompt,
+                shotId: shot.id,
+                imageUrl: shot.image
+            });
+
+            if (isCancelled) return;
+
+            handleFieldChange(shot.id, 'video', videoUrl);
+            message.success({ content: t('storyboard.videoGenerated', 'Video generated successfully'), key: 'shot-ai-video' });
+        } catch (e) {
+            message.error({ content: t('common.failed') + ': ' + e, key: 'shot-ai-video' });
+        }
+    };
 
     const shots = scene.storyboard || [];
 
@@ -615,24 +662,11 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                                 />
                             </div>
 
-                            {/* Image */}
-                            <Upload
-                                showUploadList={false}
-                                beforeUpload={async (file) => {
-                                    try {
-                                        // @ts-ignore
-                                        const filePath = file.path;
-                                        if (filePath) {
-                                            const res = await ProjectService.uploadImage(project.id, filePath);
-                                            handleFieldChange(shot.id, 'image', res);
-                                        }
-                                    } catch (e) {
-                                        message.error(t('characters.failed') + e);
-                                    }
-                                    return false;
-                                }}
-                            >
-                                <div style={{
+                            {/* Image/Video Frame */}
+                            <div
+                                onMouseEnter={() => setHoverShotId(shot.id)}
+                                onMouseLeave={() => setHoverShotId(null)}
+                                style={{
                                     width: IMG_WIDTH,
                                     height: IMG_HEIGHT,
                                     marginRight: 16,
@@ -644,26 +678,69 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                                     cursor: 'pointer',
                                     position: 'relative',
                                     overflow: 'hidden'
-                                }}>
-                                    {shot.image ? (
-                                        <img src={getImageUrl(shot.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <div style={{ textAlign: 'center', color: '#555', fontSize: 12, width: '100%' }}>
-                                            {t('common.upload')}
-                                        </div>
-                                    )}
-                                    {/* Control Icons Overlay (Top Right) */}
-                                    <div
-                                        style={{
-                                            position: 'absolute',
-                                            top: 8,
-                                            right: 8,
-                                            zIndex: 10,
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: 8
+                                }}
+                            >
+                                {shot.video && hoverShotId === shot.id ? (
+                                    <video
+                                        src={getImageUrl(shot.video)}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        autoPlay
+                                        muted
+                                        loop
+                                        onClick={(e) => { e.stopPropagation(); setPreviewVideo(shot.video!); }}
+                                    />
+                                ) : shot.image ? (
+                                    <img
+                                        src={getImageUrl(shot.image)}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        onClick={(e) => {
+                                            if (shot.video) {
+                                                e.stopPropagation();
+                                                setPreviewVideo(shot.video);
+                                            }
                                         }}
-                                        onClick={(e) => e.stopPropagation()} // Prevent triggering upload twice or unexpectedly
+                                    />
+                                ) : (
+                                    <div style={{ textAlign: 'center', color: '#555', fontSize: 12, width: '100%' }}>
+                                        {t('common.upload')}
+                                    </div>
+                                )}
+
+                                {/* Top Left: Play Icon */}
+                                {shot.video && (
+                                    <div style={{ position: 'absolute', top: 4, left: 4, fontSize: 20, color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }}>
+                                        <PlayCircleOutlined />
+                                    </div>
+                                )}
+
+                                {/* Top Right: Actions */}
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: 8,
+                                        right: 8,
+                                        zIndex: 10,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 8
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <Upload
+                                        showUploadList={false}
+                                        beforeUpload={async (file) => {
+                                            try {
+                                                // @ts-ignore
+                                                const filePath = file.path;
+                                                if (filePath) {
+                                                    const res = await ProjectService.uploadImage(project.id, filePath);
+                                                    handleFieldChange(shot.id, 'image', res);
+                                                }
+                                            } catch (e) {
+                                                message.error(t('characters.failed') + e);
+                                            }
+                                            return false;
+                                        }}
                                     >
                                         <Tooltip title={t('common.upload')}>
                                             <Button
@@ -671,29 +748,29 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                                                 size="small"
                                                 icon={<UploadOutlined />}
                                                 style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff' }}
-                                                onClick={() => {
-                                                    // This will trigger the parent Upload component because we are not stopping propagation?
-                                                    // Wait, if I want to trigger the upload, I should NOT stop propagation.
-                                                    // But I put stopProp on the container to avoid accidental clicks.
-                                                    // Let's remove stopProp from container and put it on Generate ONLY.
-                                                }}
                                             />
                                         </Tooltip>
-                                        <Tooltip title={t('storyboard.generateImage', 'Generate Image')}>
-                                            <Button
-                                                shape="circle"
-                                                size="small"
-                                                icon={<ThunderboltOutlined />}
-                                                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff' }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleGenerateShotImage(shot);
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </div>
+                                    </Upload>
+                                    <Tooltip title={t('storyboard.generateImage')}>
+                                        <Button
+                                            shape="circle"
+                                            size="small"
+                                            icon={<ThunderboltOutlined />}
+                                            style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff' }}
+                                            onClick={(e) => { e.stopPropagation(); handleGenerateShotImage(shot); }}
+                                        />
+                                    </Tooltip>
+                                    <Tooltip title={t('storyboard.generateVideo')}>
+                                        <Button
+                                            shape="circle"
+                                            size="small"
+                                            icon={<VideoCameraOutlined />}
+                                            style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff' }}
+                                            onClick={(e) => { e.stopPropagation(); handleGenerateShotVideo(shot); }}
+                                        />
+                                    </Tooltip>
                                 </div>
-                            </Upload>
+                            </div>
 
                             {/* Fields Container (Horizontal Scroll) */}
                             <div style={{ flex: 1, overflowX: 'auto' }}>
@@ -755,6 +832,22 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdatePro
                     )}
                 </div>
             </div>
+            {/* Modal for video preview */}
+            <Modal
+                open={!!previewVideo}
+                onCancel={() => setPreviewVideo(null)}
+                footer={null}
+                width={800}
+                centered
+                destroyOnClose
+            >
+                <video
+                    src={getImageUrl(previewVideo || undefined)}
+                    style={{ width: '100%', borderRadius: 8 }}
+                    controls
+                    autoPlay
+                />
+            </Modal>
         </div>
     );
 }

@@ -512,6 +512,119 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     }
   })
 
+  ipcMain.handle('generate-shot-video', async (_, params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => {
+    const { projectId, prompt, shotId, imageUrl } = params;
+    const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(settingsStr)
+    const videoModelId = settings.videoModelId || 'doubao-seedance-pro-sub-251015'
+
+    if (!settings.volcEngineApiKey) {
+      throw new Error('API Key not configured')
+    }
+
+    const client = new OpenAI({
+      apiKey: settings.volcEngineApiKey,
+      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+    })
+
+    // 1. Prepare Image ID if possible
+    let imageId: string | undefined;
+    if (imageUrl) {
+        try {
+            const relativePath = imageUrl.replace('story-asset://', '');
+            const fullPath = join(PROJECT_DIR, relativePath);
+            
+            const { createReadStream } = require('fs');
+            const fileStream = createReadStream(fullPath);
+
+            const fileRes = await client.files.create({
+                file: fileStream,
+                purpose: 'user_data' 
+            });
+            imageId = fileRes.id;
+            console.log(`Uploaded reference image for video: ${imageId}`);
+        } catch (e) {
+            console.error('Failed to upload reference image for video:', e);
+        }
+    }
+
+    // 2. Create Video Task
+    const requestBody = {
+        model: videoModelId,
+        content: {
+            text: prompt,
+            image_id: imageId
+        }
+    };
+
+    const createTaskRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${settings.volcEngineApiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+    });
+
+    if (!createTaskRes.ok) {
+        const error = await createTaskRes.text();
+        throw new Error(`Failed to create video task: ${error}`);
+    }
+
+    const taskData: any = await createTaskRes.json();
+    const taskId = taskData.id;
+    if (!taskId) throw new Error('No task ID returned');
+
+    // 3. Poll for Status
+    let videoUrl = '';
+    const pollStart = Date.now();
+    const timeout = 15 * 60 * 1000; // 15 minutes
+
+    while (Date.now() - pollStart < timeout) {
+        const statusRes = await fetch(`https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/${taskId}`, {
+            headers: {
+                'Authorization': `Bearer ${settings.volcEngineApiKey}`
+            }
+        });
+
+        if (!statusRes.ok) {
+            console.warn(`Polling failed for task ${taskId}, retrying...`);
+        } else {
+            const statusData: any = await statusRes.json();
+            const status = statusData.status;
+            
+            if (status === 'succeeded') {
+                videoUrl = statusData.video_url;
+                break;
+            } else if (status === 'failed') {
+                throw new Error(`Video generation failed: ${statusData.error_message || 'Unknown error'}`);
+            }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+
+    if (!videoUrl) throw new Error('Video generation timed out');
+
+    // 4. Save Video Locally
+    try {
+        const videoDir = join(PROJECT_DIR, projectId, 'videos');
+        await fs.mkdir(videoDir, { recursive: true });
+        
+        const fileName = `video_${shotId}_${Date.now()}.mp4`;
+        const filePath = join(videoDir, fileName);
+        
+        const videoFileRes = await fetch(videoUrl);
+        const buffer = await videoFileRes.arrayBuffer();
+        await fs.writeFile(filePath, Buffer.from(buffer));
+        
+        return `${projectId}/videos/${fileName}`;
+    } catch (e) {
+        console.error('Failed to save video locally:', e);
+        return videoUrl; // Fallback to remote URL
+    }
+  })
+
   ipcMain.handle('upload-image', async (_, projectId: string, filePath: string) => {
     const { nativeImage } = require('electron')
     try {

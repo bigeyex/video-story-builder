@@ -15,6 +15,7 @@ const api = {
   cancelAI: (requestId: string) => ipcRenderer.invoke('cancel-ai', requestId),
   generateImage: (prompt: string, projectId: string, characterId: string) => ipcRenderer.invoke('generate-image', prompt, projectId, characterId),
   generateShotImage: (params: any) => ipcRenderer.invoke('generate-shot-image', params),
+  generateShotVideo: (params: any) => ipcRenderer.invoke('generate-shot-video', params),
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => ipcRenderer.invoke('generate-character-design', prompt, projectId, characterId),
   openProjectsFolder: () => ipcRenderer.invoke('open-projects-folder'),
   uploadImage: (projectId: string, filePath: string) => ipcRenderer.invoke('upload-image', projectId, filePath),
