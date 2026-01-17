@@ -9,8 +9,10 @@ Characters involved: {{characters}}
 
 Scene Title: {{title}}
 
-Output a concise JSON object with two fields:
-- outline: a punchy sequence of events focusing strictly on plot movement and character development. Avoid deep sensory or visual descriptions (reserved for shot generation).
+Output a concise JSON object with a single field "candidates", which is an array of exactly 3 distinct options. Each option must have:
+- outline: a punchy sequence of events focusing strictly on plot movement and character development. Avoid deep sensory or visual descriptions.
 - conflict: the core emotional or physical tension driving the scene.
 
-Do not include any markdown formatting, just the raw JSON object.
+Make the 3 options drastically different in tone, pacing, or conflict resolution.
+
+Do not include any markdown formatting, just the raw JSON object. nest the array in "candidates".

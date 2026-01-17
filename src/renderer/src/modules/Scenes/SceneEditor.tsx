@@ -1,9 +1,10 @@
 import { Input, Form, Button, message } from 'antd';
 import { Scene, Project } from '../../../../shared/types';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import { AIProgressToast } from '../../utils/AIUtils';
+import { SelectionModal } from '../../components/SelectionModal';
 
 const { TextArea } = Input;
 
@@ -11,11 +12,14 @@ interface InternalProps {
     project: Project;
     scene: Scene | null;
     onUpdate: (updates: Partial<Scene>) => void;
+    onUpdateProject?: (updates: Partial<Project>) => void;
 }
 
-export default function SceneEditor({ project, scene, onUpdate }: InternalProps) {
+export default function SceneEditor({ project, scene, onUpdate, onUpdateProject }: InternalProps) {
     const { t } = useTranslation();
     const [form] = Form.useForm();
+    const [selectionVisible, setSelectionVisible] = useState(false);
+    const [candidates, setCandidates] = useState<any[]>([]);
 
     useEffect(() => {
         if (scene) {
@@ -97,11 +101,30 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
                 let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
                 try {
                     const result = JSON.parse(content);
-                    onUpdate({
-                        outline: result.outline || '',
-                        conflict: result.conflict || ''
-                    });
-                    message.success({ content: t('scenes.generated'), key: 'gen' });
+
+                    // New flow: Check for candidates array
+                    if (result.candidates && Array.isArray(result.candidates) && result.candidates.length > 0) {
+                        setCandidates(result.candidates);
+                        setSelectionVisible(true);
+                        message.success({ content: t('scenes.generatedOptions', 'Options generated, please select one'), key: 'gen' });
+                    } else if (result.outline) {
+                        // Fallback for old prompt or single result
+                        onUpdate({
+                            outline: result.outline || '',
+                            conflict: result.conflict || ''
+                        });
+                        message.success({ content: t('scenes.generated'), key: 'gen' });
+                    } else {
+                        // Edge case: maybe array at root?
+                        if (Array.isArray(result) && result.length > 0) {
+                            setCandidates(result);
+                            setSelectionVisible(true);
+                            message.success({ content: t('scenes.generatedOptions', 'Options generated, please select one'), key: 'gen' });
+                        } else {
+                            throw new Error('Invalid response format');
+                        }
+                    }
+
                 } catch (e) {
                     onUpdate({ outline: content });
                     message.success({ content: t('scenes.generated'), key: 'gen' });
@@ -123,8 +146,23 @@ export default function SceneEditor({ project, scene, onUpdate }: InternalProps)
         }
     };
 
+    const handleSelectCandidate = (candidate: any) => {
+        onUpdate({
+            outline: candidate.outline || '',
+            conflict: candidate.conflict || ''
+        });
+        setSelectionVisible(false);
+        setCandidates([]);
+    };
+
     return (
         <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column' }}>
+            <SelectionModal
+                visible={selectionVisible}
+                candidates={candidates}
+                onSelect={handleSelectCandidate}
+                onCancel={() => setSelectionVisible(false)}
+            />
             <Form
                 form={form}
                 layout="vertical"

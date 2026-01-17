@@ -3,7 +3,7 @@ import {
     PlusOutlined, VideoCameraOutlined, MoreOutlined, RobotOutlined,
     ScissorOutlined, CopyOutlined, SnippetsOutlined,
     ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined,
-    UploadOutlined
+    UploadOutlined, ThunderboltOutlined
 } from '@ant-design/icons';
 import { ProjectService } from '../../services/ProjectService';
 import { AIProgressToast } from '../../utils/AIUtils';
@@ -18,9 +18,10 @@ interface InternalProps {
     project: Project;
     scene: Scene | null;
     onUpdate: (updates: Partial<Scene>) => void;
+    onUpdateProject?: (updates: Partial<Project>) => void;
 }
 
-export default function StoryboardEditor({ project, scene, onUpdate }: InternalProps) {
+export default function StoryboardEditor({ project, scene, onUpdate, onUpdateProject }: InternalProps) {
     const { t } = useTranslation();
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -157,71 +158,98 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                 return;
             }
 
-            if (!shot.description.trim()) {
-                const requestId = uuidv4();
-                const handleStop = () => {
-                    window.api.cancelAI(requestId);
-                    message.destroy('shot-ai');
-                    message.info(t('scenes.cancelled', 'Generation cancelled'));
-                };
+            const requestId = uuidv4();
+            const handleStop = () => {
+                window.api.cancelAI(requestId);
+                message.destroy('shot-ai');
+                message.info(t('scenes.cancelled', 'Generation cancelled'));
+            };
 
+            message.loading({
+                content: <AIProgressToast text={t('storyboard.generatingDescription')} onStop={handleStop} />,
+                key: 'shot-ai',
+                duration: 0
+            });
+
+            let fullContent = '';
+            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                fullContent += chunk;
                 message.loading({
-                    content: <AIProgressToast text={t('storyboard.generatingDescription')} onStop={handleStop} />,
+                    content: <AIProgressToast
+                        text={`${t('storyboard.generatingDescription')}... ${maskJson(fullContent).slice(-50)}`}
+                        onStop={handleStop}
+                    />,
                     key: 'shot-ai',
                     duration: 0
                 });
+            });
 
-                let fullContent = '';
-                const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
-                    fullContent += chunk;
-                    message.loading({
-                        content: <AIProgressToast
-                            text={`${t('storyboard.generatingDescription')}... ${maskJson(fullContent).slice(-50)}`}
-                            onStop={handleStop}
-                        />,
-                        key: 'shot-ai',
-                        duration: 0
-                    });
-                });
+            const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
+                removeChunkListener();
+                removeEndListener();
 
-                const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
-                    removeChunkListener();
-                    removeEndListener();
-
-                    let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
-                    try {
-                        const result = JSON.parse(content);
-                        if (result && result.description) {
-                            handleFieldChange(shot.id, 'description', result.description);
-                            if (result.dialogue) handleFieldChange(shot.id, 'dialogue', result.dialogue);
-                            message.success({ content: t('storyboard.descriptionGenerated'), key: 'shot-ai' });
-                        } else {
-                            message.error({ content: t('common.failed'), key: 'shot-ai' });
-                        }
-                    } catch (e) {
-                        message.error({ content: t('common.failed') + ' (Invalid JSON)', key: 'shot-ai' });
+                let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                try {
+                    const result = JSON.parse(content);
+                    if (result && result.description) {
+                        handleFieldChange(shot.id, 'description', result.description);
+                        if (result.dialogue) handleFieldChange(shot.id, 'dialogue', result.dialogue);
+                        message.success({ content: t('storyboard.descriptionGenerated'), key: 'shot-ai' });
+                    } else {
+                        message.error({ content: t('common.failed'), key: 'shot-ai' });
                     }
-                });
+                } catch (e) {
+                    message.error({ content: t('common.failed') + ' (Invalid JSON)', key: 'shot-ai' });
+                }
+            });
 
-                window.api.generateAIStream('shot-description', {
-                    sceneTitle: scene.title,
-                    sceneOutline: scene.outline,
-                    shotIndex: shots.findIndex(s => s.id === shot.id) + 1,
-                    previousShot: shots[shots.findIndex(s => s.id === shot.id) - 1]?.description || 'None',
-                    requestId
-                });
+            window.api.generateAIStream('shot-description', {
+                sceneTitle: scene.title,
+                sceneOutline: scene.outline,
+                shotIndex: shots.findIndex(s => s.id === shot.id) + 1,
+                previousShot: shots[shots.findIndex(s => s.id === shot.id) - 1]?.description || 'None',
+                requestId
+            });
+
+        } catch (e) {
+            message.error({ content: t('common.failed') + ': ' + e, key: 'shot-ai' });
+        }
+    };
+
+    const handleGenerateShotImage = async (shot: StoryboardShot) => {
+        try {
+            const settings = await window.api.getSettings();
+            if (!settings.volcEngineApiKey) {
+                message.error(t('common.error', 'No API Key'));
                 return;
             }
 
-            // Generate Image
-            message.loading({ content: t('storyboard.generatingImage'), key: 'shot-ai', duration: 0 });
+            if (!shot.description) {
+                message.warning(t('storyboard.noDescription', 'Please generate or write a description first'));
+                return;
+            }
+
+            message.loading({ content: t('storyboard.generatingImage'), key: 'shot-ai-img', duration: 0 });
+
             const prompt = `Art Style: ${project.wordSettings.artStyle}. Scene: ${scene.title}. Shot Description: ${shot.description}. Camera: ${shot.camera}.`;
-            // Note: generateImage is not streaming yet based on the plan, but we can make it persistent
-            const url = await window.api.generateImage(prompt, project.id, 'shot-' + shot.id);
-            handleFieldChange(shot.id, 'image', url);
-            message.success({ content: t('storyboard.imageGenerated'), key: 'shot-ai' });
+
+            const result = await window.api.generateShotImage({
+                projectId: project.id,
+                prompt,
+                shotId: shot.id,
+                characters: project.characters
+            });
+
+            handleFieldChange(shot.id, 'image', result.url);
+
+            // Sync updated characters (with new reference IDs) back to project state
+            if (result.updatedCharacters && result.updatedCharacters.length > 0 && onUpdateProject) {
+                onUpdateProject({ characters: result.updatedCharacters });
+            }
+
+            message.success({ content: t('storyboard.imageGenerated'), key: 'shot-ai-img' });
         } catch (e) {
-            message.error({ content: t('common.failed') + ': ' + e, key: 'shot-ai' });
+            message.error({ content: t('common.failed') + ': ' + e, key: 'shot-ai-img' });
         }
     };
 
@@ -543,17 +571,58 @@ export default function StoryboardEditor({ project, scene, onUpdate }: InternalP
                                     border: '1px dashed #444',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
                                     flexShrink: 0,
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                    overflow: 'hidden'
                                 }}>
                                     {shot.image ? (
                                         <img src={getImageUrl(shot.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <div style={{ textAlign: 'center', color: '#555', fontSize: 12 }}>
-                                            <UploadOutlined style={{ fontSize: 20, marginBottom: 4 }} /><br />{t('common.upload')}
+                                        <div style={{ textAlign: 'center', color: '#555', fontSize: 12, width: '100%' }}>
+                                            {t('common.upload')}
                                         </div>
                                     )}
+                                    {/* Control Icons Overlay (Top Right) */}
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            top: 8,
+                                            right: 8,
+                                            zIndex: 10,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 8
+                                        }}
+                                        onClick={(e) => e.stopPropagation()} // Prevent triggering upload twice or unexpectedly
+                                    >
+                                        <Tooltip title={t('common.upload')}>
+                                            <Button
+                                                shape="circle"
+                                                size="small"
+                                                icon={<UploadOutlined />}
+                                                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff' }}
+                                                onClick={() => {
+                                                    // This will trigger the parent Upload component because we are not stopping propagation?
+                                                    // Wait, if I want to trigger the upload, I should NOT stop propagation.
+                                                    // But I put stopProp on the container to avoid accidental clicks.
+                                                    // Let's remove stopProp from container and put it on Generate ONLY.
+                                                }}
+                                            />
+                                        </Tooltip>
+                                        <Tooltip title={t('storyboard.generateImage', 'Generate Image')}>
+                                            <Button
+                                                shape="circle"
+                                                size="small"
+                                                icon={<ThunderboltOutlined />}
+                                                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleGenerateShotImage(shot);
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </div>
                                 </div>
                             </Upload>
 

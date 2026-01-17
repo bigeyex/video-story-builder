@@ -350,6 +350,167 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     }
   })
 
+  ipcMain.handle('generate-shot-image', async (_, params: { projectId: string, prompt: string, shotId: string, characters: any[] }) => {
+    const { projectId, prompt, shotId, characters } = params;
+    const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(settingsStr)
+    // Use user settings or default to a model that supports reference images if possible
+    // Doubao-Seedream-4.5 supports multi-reference
+    const imageModelId = settings.imageModelId || 'doubao-seedream-4-5-251128'
+
+    if (!settings.volcEngineApiKey) {
+      throw new Error('API Key not configured')
+    }
+
+    const client = new OpenAI({
+      apiKey: settings.volcEngineApiKey,
+      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+    })
+
+    // 1. Load project to check for existing reference IDs (source of truth)
+    const projectPath = join(PROJECT_DIR, projectId, 'project.json');
+    let projectCharacters: any[] = [];
+    try {
+        const projectContent = await fs.readFile(projectPath, 'utf-8');
+        const project = JSON.parse(projectContent);
+        projectCharacters = project.characters || [];
+    } catch (e) {
+        console.error('Failed to load project for characters:', e);
+        projectCharacters = characters; // Fallback to params
+    }
+
+    // 2. Identify chars and upload references
+    const updatedCharacters: any[] = [];
+    const references: any[] = [];
+    let hasUpdates = false;
+
+    // We iterate over the characters from project file to ensure we use persisted IDs
+    // But we only care about characters mentioned in the prompt
+    for (const char of projectCharacters) {
+      if (prompt.toLowerCase().includes(char.name.toLowerCase())) {
+        if (char.characterDesign) {
+            let refId = char.volcRefId;
+
+            // If no ref ID but we have a design file, upload it
+            if (!refId && char.characterDesign) {
+                try {
+                    const fullPath = join(PROJECT_DIR, char.characterDesign);
+                    
+                    // We need a File-like object. 'fs.createReadStream' is standard in Node.
+                    const { createReadStream } = require('fs');
+                    const fileStream = createReadStream(fullPath);
+
+                    const fileRes = await client.files.create({
+                        file: fileStream,
+                        purpose: 'user_data' 
+                    });
+                    
+                    refId = fileRes.id;
+                    char.volcRefId = refId;
+                    updatedCharacters.push(char);
+                    hasUpdates = true;
+                    console.log(`Uploaded design for ${char.name}: ${refId}`);
+                } catch (e) {
+                    console.error(`Failed to upload design for ${char.name}:`, e);
+                }
+            } else if (refId) {
+                // Already has ID, good.
+            }
+
+            if (refId) {
+                references.push({
+                    image_id: refId,
+                    image_ref_type: 'character' 
+                });
+            }
+        }
+      }
+    }
+
+    // 3. Persist updated characters (ref IDs)
+    if (hasUpdates) {
+        try {
+            const projectContent = await fs.readFile(projectPath, 'utf-8');
+            const project = JSON.parse(projectContent);
+            
+            // Update characters in project
+            project.characters = project.characters.map(c => {
+                const updated = updatedCharacters.find(uc => uc.id === c.id);
+                return updated ? { ...c, volcRefId: updated.volcRefId } : c;
+            })
+            
+            await fs.writeFile(projectPath, JSON.stringify(project, null, 2));
+        } catch (e) {
+            console.error('Failed to save updated reference IDs:', e);
+        }
+    }
+
+    // 3. Generate Image
+    // VolcEngine Doubao specific: How to pass references?
+    // The standard OpenAI SDK 'images.generate' only accepts prompt/n/size/model/response_format/user/quality/style.
+    // We strictly need to pass 'references' in the body.
+    // The SDK allows extra body parameters if we cast or use custom request?
+    // Actually, simple hack: just pass it. TS might complain, so we cast to any.
+    
+    // Note: VolcEngine docs say parameters are usually snake_case.
+    // Common extension: req_key OR references
+    
+    // Based on recent VolcEngine usage (e.g. SeedEdit), it might be 'references'.
+    // If strict OpenAI SDK strips unknown keys, we might fail.
+    // But 'client.images.generate' usually takes 'options' which can have extra props? No.
+    // We should use `client.post` if supported or assume the SDK passes through unknown props?
+    // The safest way with the configured client is to assume it might not pass unknown props,
+    // but typically OpenAI wrappers do allow extra fields in some versions or via 'extra_body' logic isn't explicit in basic 'generate'.
+    
+    // HOWEVER, for `images.generate`, there's no `extra_body` arg in standard signature. 
+    // We will try to pass it in the object and cast to any.
+    
+    const requestBody: any = {
+        model: imageModelId,
+        prompt: prompt,
+        n: 1,
+        size: '2048x2048',
+    };
+
+    if (references.length > 0) {
+        // VolcEngine convention for character ref
+        // refs: [{ image_id: "...", image_ref_type: "character" }]
+        requestBody.references = references;
+    }
+
+    const response = await client.images.generate(requestBody);
+
+    const url = response.data?.[0]?.url || '';
+    
+    if (!url) {
+        // Return empty or throw
+        throw new Error('No image generated');
+    }
+
+    // 4. Save Image Locally
+    try {
+      // Re-use avatars or 'assets'? Let's use 'avatars' for simplicity or 'shots'
+      const shotsDir = join(PROJECT_DIR, projectId, 'shots');
+      await fs.mkdir(shotsDir, { recursive: true });
+      
+      const fileName = `shot_${shotId}_${Date.now()}.png`;
+      const filePath = join(shotsDir, fileName);
+      
+      const imgRes = await fetch(url);
+      const buffer = await imgRes.arrayBuffer();
+      await fs.writeFile(filePath, Buffer.from(buffer));
+      
+      // Return relative path
+      return { 
+          url: `${projectId}/shots/${fileName}`,
+          updatedCharacters // Return these so frontend can update its state
+      };
+    } catch (e) {
+      console.error('Failed to save shot locally:', e);
+      return { url, updatedCharacters }; 
+    }
+  })
+
   ipcMain.handle('upload-image', async (_, projectId: string, filePath: string) => {
     const { nativeImage } = require('electron')
     try {

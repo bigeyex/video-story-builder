@@ -131,6 +131,22 @@ export default function ScenesPage() {
     const activeChapter = project.chapters.find(c => c.id === selectedChapterId);
     const activeScene = activeChapter?.scenes.find(s => s.id === selectedSceneId) || null;
 
+    const handleUpdateProject = (updates: Partial<Project>) => {
+        if (!project) return;
+        const updated = { ...project, ...updates };
+        setProject(updated);
+        // Persist immediately? or let debounce handle? 
+        // If we received updates from backend (which already persisted), we might want to just update state 
+        // OR we might trigger saveProject to be safe (but careful of race if backend just wrote).
+        // Since backend ALREADY wrote to file, sending it back to saveProject might OVERWRITE if our state was stale.
+        // Wait. Backend wrote to file. We update state.
+        // If we trigger saveProject, we write THIS state back to file.
+        // If THIS state matches what backend wrote (we merged updates), then it's fine.
+        // So: safe to debounce save.
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => saveProject(updated), 1000);
+    };
+
     return (
         <Layout style={{ height: '100%', flexDirection: 'row' }}>
             {/* Resizable Sidebar */}
@@ -205,12 +221,22 @@ export default function ScenesPage() {
                     <>
                         {/* Top Section: Scene Details */}
                         <div style={{ flexShrink: 0, borderBottom: '1px solid #333', overflowY: 'auto', maxHeight: '50%' }}>
-                            <SceneEditor project={project} scene={activeScene} onUpdate={handleUpdateScene} />
+                            <SceneEditor
+                                project={project}
+                                scene={activeScene}
+                                onUpdate={handleUpdateScene}
+                                onUpdateProject={handleUpdateProject}
+                            />
                         </div>
 
                         {/* Bottom Section: Storyboard */}
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <StoryboardEditor project={project} scene={activeScene} onUpdate={handleUpdateScene} />
+                            <StoryboardEditor
+                                project={project}
+                                scene={activeScene}
+                                onUpdate={handleUpdateScene}
+                                onUpdateProject={handleUpdateProject}
+                            />
                         </div>
                     </>
                 ) : (

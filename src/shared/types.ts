@@ -10,6 +10,7 @@ export interface Character {
   name: string;
   avatar?: string;
   characterDesign?: string;
+  volcRefId?: string;
   background: string;
   personality: string;
   appearance: string;
@@ -79,6 +80,7 @@ export interface API {
   saveSettings: (settings: GlobalSettings) => Promise<boolean>;
   generateAI: (type: string, params: any) => Promise<any>;
   generateImage: (prompt: string, projectId: string, characterId: string) => Promise<string>;
+  generateShotImage: (params: { projectId: string, prompt: string, shotId: string, characters: Character[] }) => Promise<{ url: string, updatedCharacters: Character[] }>;
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   openProjectsFolder: () => Promise<void>;
   uploadImage: (projectId: string, filePath: string) => Promise<string>;
