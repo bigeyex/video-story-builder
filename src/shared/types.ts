@@ -84,7 +84,7 @@ export interface API {
   generateAI: (type: string, params: any) => Promise<any>;
   generateImage: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   generateShotImage: (params: { projectId: string, prompt: string, shotId: string, characters: Character[] }) => Promise<{ url: string, updatedCharacters: Character[] }>;
-  generateShotVideo: (params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => Promise<string>;
+  generateShotVideo: (params: { projectId: string, prompt: string, shotId: string, imageUrl: string, dialogue?: string, duration?: number, ratio?: string, camera?: string, sound?: string }) => Promise<string>;
   cancelVideoTask: (taskId: string) => Promise<boolean>;
   resumeVideoPolling: (params: { projectId: string, shotId: string, taskId: string }) => Promise<void>;
   resumeProjectVideoPolling: (projectId: string) => Promise<void>;

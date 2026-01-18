@@ -162,7 +162,23 @@ export default function ScenesPage() {
     };
 
     const handleUpdateProject = (updates: Partial<Project>) => {
-        updateProjectState(prev => ({ ...prev, ...updates }));
+        updateProjectState(prev => {
+            const newProject = { ...prev, ...updates };
+
+            // Intelligent Character Merge
+            if (updates.characters) {
+                newProject.characters = updates.characters.map(uc => {
+                    const existing = prev.characters.find(c => c.id === uc.id);
+                    if (existing) {
+                        // Merge UC (update) into Existing (latest source of truth for metadata)
+                        return { ...existing, ...uc };
+                    }
+                    return uc;
+                });
+            }
+
+            return newProject;
+        });
     };
 
     if (!project) return <div>Loading...</div>;

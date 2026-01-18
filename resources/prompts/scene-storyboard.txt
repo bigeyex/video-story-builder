@@ -8,7 +8,7 @@ Art Style: {{artStyle}}
 
 Output a JSON array of objects, where each object has:
 - description: string (Detailed visual description for image generation)
-- dialogue: string (Optional dialogue)
+- dialogue: string (Optional dialogue in format: {character}({optional tone}):"{content of speech}", ensure content is in quotes)
 - duration: number (seconds)
 - camera: string (e.g. Extreme Close Up, Low Angle)
 - sound: string (Optional sound effects or music cues)

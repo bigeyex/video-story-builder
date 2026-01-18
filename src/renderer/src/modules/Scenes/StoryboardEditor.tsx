@@ -79,7 +79,12 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdateSho
                 projectId: project.id,
                 prompt,
                 shotId: shot.id,
-                imageUrl: shot.image
+                imageUrl: shot.image,
+                dialogue: shot.dialogue,
+                duration: shot.duration,
+                ratio: aspectRatio,
+                camera: shot.camera,
+                sound: shot.sound
             });
 
             handleFieldChange(shot.id, 'videoTaskId', taskId);

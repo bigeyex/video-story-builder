@@ -37,10 +37,14 @@ export default function CharactersPage() {
         }
     };
 
-    const updateProjectState = (updater: (prev: Project) => Project) => {
+    const updateProjectState = (updater: (prev: Project) => Partial<Project> | Project) => {
         setProject(prev => {
             if (!prev) return null;
-            const updated = updater(prev);
+            const updates = updater(prev);
+
+            // Intelligent Merge:
+            // If the updater returns a partial project, we merge it deeply for critical arrays
+            const updated: Project = { ...prev, ...updates };
 
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             saveTimeoutRef.current = setTimeout(() => saveProject(updated), 1000);
@@ -123,15 +127,35 @@ export default function CharactersPage() {
                 position: { x: 100, y: 100 }
             };
             setSelectedCharId(newChar.id);
-            return { ...prev, characters: [...prev.characters, newChar] };
+            return { characters: [...prev.characters, newChar] };
         });
     };
 
     const handleUpdateCharacter = (id: string, updates: Partial<Character>) => {
         updateProjectState(prev => ({
-            ...prev,
             characters: prev.characters.map(c => c.id === id ? { ...c, ...updates } : c)
         }));
+    };
+
+    const handleGraphUpdate = (chars: Character[], rels: Relationship[]) => {
+        updateProjectState(prev => {
+            // Intelligent merging from graph:
+            // Graph provides full list but might have stale metadata if it was rendered with old props.
+            // We TRUST the graph for positions and relationship structure.
+            // We PRESERVE existing metadata (avatar, design, etc.) from the latest state.
+            const mergedChars = chars.map(gc => {
+                const existing = prev.characters.find(c => c.id === gc.id);
+                if (existing) {
+                    return { ...existing, position: gc.position };
+                }
+                return gc;
+            });
+
+            return {
+                characters: mergedChars,
+                relationships: rels
+            };
+        });
     };
 
     const handleDeleteCharacter = (id: string) => {
@@ -171,7 +195,7 @@ export default function CharactersPage() {
                 <CharacterGraph
                     characters={project.characters}
                     relationships={project.relationships}
-                    onUpdate={(chars, rels) => updateProjectState(prev => ({ ...prev, characters: chars, relationships: rels }))}
+                    onUpdate={handleGraphUpdate}
                     onSelect={setSelectedCharId}
                     selectedId={selectedCharId}
                 />

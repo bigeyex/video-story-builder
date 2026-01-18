@@ -530,7 +530,7 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     }
   })
 
-const activeVideoPolls = new Map<string, AbortController>()
+const activeVideoPolls = new Map<string, { controller: AbortController, sender: Electron.WebContents }>()
 
 async function startVideoPolling(params: {
     projectId: string,
@@ -541,11 +541,23 @@ async function startVideoPolling(params: {
 }) {
     const { projectId, shotId, taskId, apiKey, eventSender } = params;
     
-    if (activeVideoPolls.has(taskId)) return;
+    // If already polling, just update the sender and return
+    if (activeVideoPolls.has(taskId)) {
+        const entry = activeVideoPolls.get(taskId);
+        if (entry) entry.sender = eventSender;
+        return;
+    }
     
     const controller = new AbortController();
-    activeVideoPolls.set(taskId, controller);
+    activeVideoPolls.set(taskId, { controller, sender: eventSender });
     
+    const sendUpdate = (channel: string, data: any) => {
+        const entry = activeVideoPolls.get(taskId);
+        if (entry && !entry.sender.isDestroyed()) {
+            entry.sender.send(channel, data);
+        }
+    };
+
     let pollCount = 0;
     try {
         while (!controller.signal.aborted) {
@@ -569,7 +581,6 @@ async function startVideoPolling(params: {
                     const videoUrl = statusData.content?.video_url;
                     
                     if (videoUrl) {
-                        // Download and save locally
                         try {
                             const videoDir = join(PROJECT_DIR, projectId, 'videos');
                             await fs.mkdir(videoDir, { recursive: true });
@@ -582,23 +593,22 @@ async function startVideoPolling(params: {
                             await fs.writeFile(filePath, Buffer.from(buffer));
                             
                             const relativeVideoUrl = `${projectId}/videos/${fileName}`;
-                            eventSender.send('video-status-update', { projectId, shotId, status: 'succeeded', videoUrl: relativeVideoUrl });
+                            sendUpdate('video-status-update', { projectId, shotId, status: 'succeeded', videoUrl: relativeVideoUrl });
                         } catch (e) {
                             console.error('Failed to save video locally:', e);
-                            eventSender.send('video-status-update', { projectId, shotId, status: 'succeeded', videoUrl }); // Fallback to remote
+                            sendUpdate('video-status-update', { projectId, shotId, status: 'succeeded', videoUrl }); 
                         }
                         break;
                     } else {
-                        eventSender.send('video-status-update', { projectId, shotId, status: 'failed', error: 'Video URL not found in response' });
+                        sendUpdate('video-status-update', { projectId, shotId, status: 'failed', error: 'Video URL not found in response' });
                         break;
                     }
                 } else if (status === 'failed') {
                     console.error(`[Poll ${pollCount}] Video generation failed:`, JSON.stringify(statusData, null, 2));
-                    eventSender.send('video-status-update', { projectId, shotId, status: 'failed', error: statusData.error_message || 'Unknown error' });
+                    sendUpdate('video-status-update', { projectId, shotId, status: 'failed', error: statusData.error_message || 'Unknown error' });
                     break;
                 } else {
-                    // Still running or pending
-                    eventSender.send('video-status-update', { projectId, shotId, status });
+                    sendUpdate('video-status-update', { projectId, shotId, status });
                 }
             }
 
@@ -609,15 +619,15 @@ async function startVideoPolling(params: {
             console.log(`Video polling aborted for task: ${taskId}`);
         } else {
             console.error(`Error polling video task ${taskId}:`, e);
-            eventSender.send('video-status-update', { projectId, shotId, status: 'failed', error: e.message });
+            sendUpdate('video-status-update', { projectId, shotId, status: 'failed', error: e.message });
         }
     } finally {
         activeVideoPolls.delete(taskId);
     }
 }
 
-  ipcMain.handle('generate-shot-video', async (event, params: { projectId: string, prompt: string, shotId: string, imageUrl: string }) => {
-    const { projectId, prompt, shotId, imageUrl } = params;
+  ipcMain.handle('generate-shot-video', async (event, params: { projectId: string, prompt: string, shotId: string, imageUrl: string, dialogue?: string, duration?: number, ratio?: string, camera?: string, sound?: string }) => {
+    const { projectId, prompt, shotId, imageUrl, dialogue, duration, ratio, camera, sound } = params;
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
     let videoModelId = settings.videoModelId || DEFAULT_MODELS.video
@@ -648,8 +658,33 @@ async function startVideoPolling(params: {
         }
     }
 
-    // 2. Create Video Task
-    const requestBody = {
+    // 2. Prepare Combined Prompt with Metadata
+    let finalPrompt = prompt;
+    if (camera) finalPrompt += `. Camera: ${camera}`;
+    if (sound) finalPrompt += `. Sound/Atmosphere: ${sound}`;
+    
+    if (dialogue) {
+        // Find if dialogue already has quotes, if not wrap it
+        let cleanDialogue = dialogue.trim();
+        // Check for both English and Chinese quotes
+        if (!/^["“].*["”]$/.test(cleanDialogue)) {
+            // Check if it has character name part already: Name: "Content"
+            if (cleanDialogue.includes(':')) {
+                const parts = cleanDialogue.split(':');
+                const charPart = parts[0].trim();
+                const contentPart = parts.slice(1).join(':').trim();
+                if (!/^["“].*["”]$/.test(contentPart)) {
+                    cleanDialogue = `${charPart}: "${contentPart}"`;
+                }
+            } else {
+                cleanDialogue = `"${cleanDialogue}"`;
+            }
+        }
+        finalPrompt += `. Dialogue: ${cleanDialogue}`;
+    }
+
+    // 3. Create Video Task
+    const requestBody: any = {
         model: videoModelId,
         content: [
             {
@@ -660,9 +695,11 @@ async function startVideoPolling(params: {
             },
             {
                 "type": "text",
-                "text": prompt
+                "text": finalPrompt
             }
-        ]
+        ],
+        duration: duration || 5,
+        ratio: ratio || "16:9"
     };
 
     const createTaskRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks', {
@@ -696,9 +733,9 @@ async function startVideoPolling(params: {
   })
 
   ipcMain.handle('cancel-video-task', (_, taskId: string) => {
-    const controller = activeVideoPolls.get(taskId);
-    if (controller) {
-        controller.abort();
+    const entry = activeVideoPolls.get(taskId);
+    if (entry) {
+        entry.controller.abort();
         activeVideoPolls.delete(taskId);
         return true;
     }
