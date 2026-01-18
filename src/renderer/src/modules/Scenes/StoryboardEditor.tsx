@@ -1,10 +1,10 @@
-import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip, Upload, Modal, InputNumber } from 'antd';
+import { Button, Input, message, Dropdown, Checkbox, MenuProps, Space, Radio, Tooltip, Upload, Modal, InputNumber, Popover, Badge } from 'antd';
 import {
-    PlusOutlined, VideoCameraOutlined, MoreOutlined, RobotOutlined,
+    PlusOutlined, VideoCameraOutlined, MoreOutlined,
     ScissorOutlined, CopyOutlined, SnippetsOutlined,
     ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined,
     UploadOutlined, ThunderboltOutlined, DownOutlined, PlayCircleOutlined,
-    SyncOutlined, StopOutlined
+    SyncOutlined, StopOutlined, CommentOutlined, CheckCircleOutlined
 } from '@ant-design/icons';
 import { ProjectService } from '../../services/ProjectService';
 import { AIProgressToast } from '../../utils/AIUtils';
@@ -215,71 +215,6 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdateSho
         return text.replace(/[{}["\]:,\n]/g, ' ').replace(/\s+/g, ' ').trim();
     };
 
-    const handlePerShotAI = async (shot: StoryboardShot) => {
-        try {
-            const settings = await window.api.getSettings();
-            if (!settings.volcEngineApiKey) {
-                message.error(t('common.error', 'No API Key'));
-                return;
-            }
-
-            const requestId = uuidv4();
-            const handleStop = () => {
-                window.api.cancelAI(requestId);
-                message.destroy('shot-ai');
-                message.info(t('scenes.cancelled', 'Generation cancelled'));
-            };
-
-            message.loading({
-                content: <AIProgressToast text={t('storyboard.generatingDescription')} onStop={handleStop} />,
-                key: 'shot-ai',
-                duration: 0
-            });
-
-            let fullContent = '';
-            const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
-                fullContent += chunk;
-                message.loading({
-                    content: <AIProgressToast
-                        text={`${t('storyboard.generatingDescription')}... ${maskJson(fullContent).slice(-50)}`}
-                        onStop={handleStop}
-                    />,
-                    key: 'shot-ai',
-                    duration: 0
-                });
-            });
-
-            const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
-                removeChunkListener();
-                removeEndListener();
-
-                let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
-                try {
-                    const result = JSON.parse(content);
-                    if (result && result.description) {
-                        handleFieldChange(shot.id, 'description', result.description);
-                        if (result.dialogue) handleFieldChange(shot.id, 'dialogue', result.dialogue);
-                        message.success({ content: t('storyboard.descriptionGenerated'), key: 'shot-ai' });
-                    } else {
-                        message.error({ content: t('common.failed'), key: 'shot-ai' });
-                    }
-                } catch (e) {
-                    message.error({ content: t('common.failed') + ' (Invalid JSON)', key: 'shot-ai' });
-                }
-            });
-
-            window.api.generateAIStream('shot-description', {
-                sceneTitle: scene.title,
-                sceneOutline: scene.outline,
-                shotIndex: shots.findIndex(s => s.id === shot.id) + 1,
-                previousShot: shots[shots.findIndex(s => s.id === shot.id) - 1]?.description || 'None',
-                requestId
-            });
-
-        } catch (e) {
-            message.error({ content: t('common.failed') + ': ' + e, key: 'shot-ai' });
-        }
-    };
 
     const handleGenerateShotImage = async (shot: StoryboardShot) => {
         try {
@@ -601,11 +536,121 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdateSho
         }
     };
 
+    const handleResolveComments = async () => {
+        Modal.confirm({
+            title: t('storyboard.resolveCommentsConfirm.title', 'Resolve Comments?'),
+            content: t('storyboard.resolveCommentsConfirm.content', 'All shots will be regenerated and replaced based on your comments. This will overwrite existing manual edits.'),
+            okText: t('common.confirm', 'Confirm'),
+            cancelText: t('common.cancel', 'Cancel'),
+            onOk: async () => {
+                try {
+                    const settings = await window.api.getSettings();
+                    if (!settings.volcEngineApiKey) {
+                        message.error(t('common.error', 'No API Key'));
+                        return;
+                    }
+
+                    const requestId = uuidv4();
+                    const handleStop = () => {
+                        window.api.cancelAI(requestId);
+                        message.destroy('resolve-gen');
+                        message.info(t('scenes.cancelled', 'Resolution cancelled'));
+                    };
+
+                    message.loading({
+                        content: <AIProgressToast text={t('storyboard.resolvingComments', 'Resolving comments...')} onStop={handleStop} />,
+                        key: 'resolve-gen',
+                        duration: 0
+                    });
+
+                    const streamData = { thinking: '', content: '' };
+
+                    const updateToast = () => {
+                        const displayText = streamData.thinking
+                            ? <>{t('storyboard.resolvingComments')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{streamData.thinking.slice(-150)}</i></>
+                            : <>{t('storyboard.resolvingComments')}<br /><br />{t('common.thinkingProcess')}<br /><i style={{ color: '#ccc' }}>{maskJson(streamData.content).slice(-100)}</i></>;
+
+                        message.loading({
+                            content: <AIProgressToast
+                                text={displayText}
+                                onStop={handleStop}
+                            />,
+                            key: 'resolve-gen',
+                            duration: 0
+                        });
+                    };
+
+                    const removeThinkingListener = window.api.onAIStreamThinking((chunk) => {
+                        streamData.thinking += chunk;
+                        updateToast();
+                    });
+
+                    const removeChunkListener = window.api.onAIStreamChunk((chunk) => {
+                        streamData.content += chunk;
+                        updateToast();
+                    });
+
+                    const removeEndListener = window.api.onAIStreamEnd((finalContent) => {
+                        removeThinkingListener();
+                        removeChunkListener();
+                        removeEndListener();
+
+                        let content = finalContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                        try {
+                            const firstBracket = content.indexOf('[');
+                            if (firstBracket !== -1) {
+                                content = content.substring(firstBracket, content.lastIndexOf(']') + 1);
+                            }
+
+                            const result = JSON.parse(content);
+                            if (Array.isArray(result)) {
+                                const generatedShots: StoryboardShot[] = result.map((r: any) => ({
+                                    id: uuidv4(),
+                                    description: r.description || '',
+                                    dialogue: r.dialogue || '',
+                                    duration: r.duration || 2,
+                                    camera: r.camera || '',
+                                    sound: r.sound || '',
+                                    image: r.image || undefined
+                                }));
+                                updateShots(generatedShots);
+                                message.success({ content: t('storyboard.commentsResolved', 'Comments resolved and storyboard regenerated'), key: 'resolve-gen' });
+                            } else {
+                                message.error({ content: t('common.failed'), key: 'resolve-gen' });
+                            }
+                        } catch (e) {
+                            message.error({ content: t('common.failed') + ' (Invalid JSON)', key: 'resolve-gen' });
+                        }
+                    });
+
+                    window.api.generateAIStream('resolve-storyboard-comments', {
+                        sceneTitle: scene.title,
+                        sceneOutline: scene.outline,
+                        sceneConflict: scene.conflict,
+                        characters: project.characters.map(c => `${c.name}: ${c.appearance}`).join('; '),
+                        artStyle: project.wordSettings.artStyle,
+                        existingShots: shots.map(s => ({
+                            description: s.description,
+                            dialogue: s.dialogue,
+                            camera: s.camera,
+                            comment: s.comment
+                        })),
+                        requestId
+                    });
+
+                } catch (e) {
+                    message.error({ content: t('common.failed') + ': ' + e, key: 'resolve-gen' });
+                }
+            }
+        });
+    };
+
     // --- Layout Constants ---
     const IMG_WIDTH = 200;
     const IMG_HEIGHT = aspectRatio === '16:9' ? (IMG_WIDTH * 9 / 16) : (IMG_WIDTH * 16 / 9);
 
     const getMenu = (index: number, shot: StoryboardShot): MenuProps => {
+
         const isTargetSelected = selectedIds.has(shot.id);
         const targetIds = isTargetSelected ? Array.from(selectedIds) : [shot.id];
 
@@ -704,9 +749,18 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdateSho
                         </Button>
                     </Dropdown>
                     <Button icon={<VideoCameraOutlined />} onClick={() => setShotCountModalVisible(true)}>{t('storyboard.generateShots')}</Button>
-                    <Button onClick={selectAll}>
-                        {selectedIds.size > 0 ? t('common.deselectAll') : t('common.selectAll')}
-                    </Button>
+
+                    {shots.some(s => s.comment?.trim()) && (
+                        <Button
+                            icon={<CheckCircleOutlined />}
+                            onClick={handleResolveComments}
+                            className="resolve-comments-btn"
+                            type="primary"
+                            ghost
+                        >
+                            {t('storyboard.resolveComments', 'Resolve Comments')} ({shots.filter(s => s.comment?.trim()).length})
+                        </Button>
+                    )}
                 </Space>
                 <Space>
                     <span>{t('storyboard.screenFormat')}:</span>
@@ -755,9 +809,44 @@ export default function StoryboardEditor({ project, scene, onUpdate, onUpdateSho
                             {/* Left Controls */}
                             <div style={{ width: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, borderRight: '1px solid #333', marginRight: 12, paddingTop: 4 }}>
                                 <span style={{ color: '#666', fontWeight: 'bold' }}>#{index + 1}</span>
-                                <Tooltip title={t('scenes.aiAssistance', 'AI Assistance')}>
-                                    <Button type="text" size="small" icon={<RobotOutlined style={{ color: '#1677ff' }} />} onClick={(e) => { e.stopPropagation(); handlePerShotAI(shot); }} />
-                                </Tooltip>
+                                <Popover
+                                    content={
+                                        <div style={{ width: 300 }} onClick={e => e.stopPropagation()}>
+                                            <TextArea
+                                                rows={4}
+                                                placeholder={t('storyboard.commentPlaceholder', 'Add editing comments for this shot...')}
+                                                value={shot.comment || ''}
+                                                onChange={(e) => handleFieldChange(shot.id, 'comment', e.target.value)}
+                                            />
+                                            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+                                                <Button
+                                                    danger
+                                                    size="small"
+                                                    type="text"
+                                                    icon={<DeleteOutlined />}
+                                                    onClick={() => handleFieldChange(shot.id, 'comment', undefined)}
+                                                >
+                                                    {t('storyboard.deleteComment', 'Delete Comment')}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    }
+                                    title={t('storyboard.shotComment', 'Shot Context/Feedback')}
+                                    trigger="click"
+                                    placement="right"
+                                >
+                                    <div onClick={e => e.stopPropagation()}>
+                                        <Tooltip title={t('storyboard.shotComment', 'Shot Comments')}>
+                                            <Badge dot={!!shot.comment?.trim()} offset={[-2, 2]}>
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<CommentOutlined style={{ color: shot.comment ? '#faad14' : '#1677ff' }} />}
+                                                />
+                                            </Badge>
+                                        </Tooltip>
+                                    </div>
+                                </Popover>
                                 <Dropdown menu={getMenu(index, shot)} trigger={['click']}>
                                     <Button type="text" size="small" icon={<MoreOutlined style={{ color: '#fff', fontSize: 16 }} />} onClick={e => e.stopPropagation()} />
                                 </Dropdown>

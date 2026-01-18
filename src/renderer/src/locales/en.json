@@ -246,6 +246,16 @@
     "batchFinished": "Batch generation finished successfully",
     "batchFinishedWithErrors": "Batch finished with {{count}} errors",
     "videoGenerated": "Video generated successfully",
-    "videoGenerationFailed": "Video generation failed"
+    "videoGenerationFailed": "Video generation failed",
+    "shotComment": "Shot Context/Feedback",
+    "commentPlaceholder": "Add editing comments for this shot...",
+    "deleteComment": "Delete Comment",
+    "resolvingComments": "Resolving comments...",
+    "resolveComments": "Resolve Comments",
+    "commentsResolved": "Comments resolved and storyboard regenerated",
+    "resolveCommentsConfirm": {
+      "title": "Resolve Comments?",
+      "content": "All shots will be regenerated and replaced based on your comments. This will overwrite existing manual edits."
+    }
   }
 }

@@ -158,8 +158,10 @@ ipcMain.handle('generate-ai', async (_, type: string, params: any) => {
   let prompt = await fs.readFile(promptPath, 'utf-8')
 
   // 3. Replace variables
+  // 3. Replace variables
   for (const [key, value] of Object.entries(params)) {
-    prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value))
+    const replacement = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
+    prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), replacement)
   }
 
   // 4. Inject language instruction
@@ -217,7 +219,8 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
 
     let prompt = await fs.readFile(promptPath, 'utf-8')
     for (const [key, value] of Object.entries(params)) {
-      prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value))
+      const replacement = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
+      prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), replacement)
     }
 
     const langMap = { 'zh': 'Chinese', 'zh-CN': 'Chinese', 'en': 'English' }

@@ -34,6 +34,7 @@ export interface StoryboardShot {
   sound: string;
   video?: string;
   videoTaskId?: string;
+  comment?: string;
   videoStatus?: 'pending' | 'running' | 'succeeded' | 'failed';
 }
 

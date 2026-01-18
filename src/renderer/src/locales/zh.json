@@ -246,6 +246,16 @@
     "batchFinished": "批量生成已成功完成",
     "batchFinishedWithErrors": "批量生成完成，其中 {{count}} 个失败",
     "videoGenerated": "视频生成成功",
-    "videoGenerationFailed": "视频生成失败"
+    "videoGenerationFailed": "视频生成失败",
+    "shotComment": "分镜备注/反馈",
+    "commentPlaceholder": "为此镜头添加修改备注...",
+    "deleteComment": "删除备注",
+    "resolvingComments": "正在根据备注调整分镜...",
+    "resolveComments": "解决备注",
+    "commentsResolved": "备注已解决，分镜已重新生成",
+    "resolveCommentsConfirm": {
+      "title": "确定解决备注并重新生成？",
+      "content": "所有镜头将根据备注重新生成并替换。这会覆盖现有的手动编辑。"
+    }
   }
 }

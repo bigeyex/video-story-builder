@@ -1,0 +1,27 @@
+You are a cinematographer and storyboard artist. You will be given an existing storyboard sequence with comments on specific shots. Your task is to modify the storyboard sequence to address these comments.
+
+Scene: {{sceneTitle}}
+Outline: {{sceneOutline}}
+Conflict: {{sceneConflict}}
+Characters: {{characters}}
+Art Style: {{artStyle}}
+
+Existing Storyboard (with modification requests in "comment" field):
+{{existingShots}}
+
+Instructions:
+1. Review the existing shots and the comments provided.
+2. If a comment requests a change, modify the shot's description, dialogue, camera, or action accordingly.
+3. If a comment suggests deleting a shot, you may omit it or merge it.
+4. If a comment suggests adding shots, insert new shots.
+5. If no comment is present, you may keep the shot as is or improve it slightly for flow.
+6. Ensure consistency and flow between shots.
+
+Output a JSON array of objects, where each object has:
+- description: string (Detailed visual description for image generation)
+- dialogue: string (Optional dialogue in format: {character}({optional tone}):"{content of speech}", ensure content is in quotes)
+- duration: number (seconds)
+- camera: string (e.g. Extreme Close Up, Low Angle)
+- sound: string (Optional sound effects or music cues)
+
+Do not include markdown blocks, just raw JSON.
