@@ -5,8 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ProjectMetadata } from '../../../shared/types';
 import { ProjectService } from '../services/ProjectService';
+import Logo from '../components/Logo';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Content } = Layout;
 
 export default function ProjectList() {
@@ -78,7 +79,7 @@ export default function ProjectList() {
             <Content style={{ maxWidth: 800, margin: '0 auto', width: '100%' }}>
                 <Space orientation="vertical" size="large" style={{ width: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Title level={2} style={{ margin: 0 }}>{t('projects.title')}</Title>
+                        <Logo size={40} />
                         <div style={{ display: 'flex', gap: 8 }}>
                             <Button icon={<FolderOpenOutlined />} onClick={() => ProjectService.openProjectsFolder()}>
                                 {t('projects.openFolder')}

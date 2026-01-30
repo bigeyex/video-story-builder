@@ -1,8 +1,8 @@
-# AI Video Story Builder
+# Storyboard Maker
 
 [中文说明 (Chinese Version)](./README_zh.md)
 
-AI Video Story Builder is a professional desktop application designed to streamline the workflow of creators from initial concept to a complete cinematic storyboard with AI-generated images and videos.
+Storyboard Maker is a professional desktop application designed to streamline the workflow of creators from initial concept to a complete cinematic storyboard with AI-generated images and videos.
 
 ## 🌟 Key Features
 
@@ -37,7 +37,7 @@ AI Video Story Builder is a professional desktop application designed to streaml
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd video-story-builder
+   cd storyboard-maker
    ```
 2. Install dependencies:
    ```bash

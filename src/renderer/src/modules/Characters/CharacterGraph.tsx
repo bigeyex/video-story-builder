@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
     Node,
     Edge,
@@ -98,7 +98,7 @@ export default function CharacterGraph({ characters, relationships, onUpdate, on
     // Sync Edges
     useEffect(() => {
         const map = getBidirectionalMap(relationships);
-        setEdges(eds => {
+        setEdges(_ => {
             const mapped = relationships.map(r => ({
                 id: r.id,
                 source: r.source,
@@ -131,7 +131,7 @@ export default function CharacterGraph({ characters, relationships, onUpdate, on
         onEdgesChange(changes);
     }, [onEdgesChange]);
 
-    const onNodeDragStop = useCallback((event, node) => {
+    const onNodeDragStop = useCallback((_event, node) => {
         const updatedChars = characters.map(c => {
             if (c.id === node.id) return { ...c, position: node.position };
             return c;

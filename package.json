@@ -1,8 +1,8 @@
 {
-  "name": "video-story-builder",
-  "productName": "Video Story Builder",
+  "name": "storyboard-maker",
+  "productName": "Storyboard Maker",
   "version": "1.0.0",
-  "description": "Video Story Builder - Professional AI storyboarding workspace",
+  "description": "Storyboard Maker - Professional AI storyboarding workspace",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",

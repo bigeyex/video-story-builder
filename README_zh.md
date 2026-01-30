@@ -1,8 +1,8 @@
-# AI 视频故事制作器 (AI Video Story Builder)
+# Storyboard Maker
 
 [English Version](./README.md)
 
-AI Video Story Builder 是一款专业的桌面端应用程序，旨在简化创作者从初步构思到完成带有 AI 生成图片和视频的电影级分镜脚本的工作流程。
+Storyboard Maker 是一款专业的桌面端应用程序，旨在简化创作者从初步构思到完成带有 AI 生成图片和视频的电影级分镜脚本的工作流程。
 
 ## 🌟 核心功能
 
@@ -37,7 +37,7 @@ AI Video Story Builder 是一款专业的桌面端应用程序，旨在简化创
 1. 克隆仓库：
    ```bash
    git clone <repository-url>
-   cd video-story-builder
+   cd storyboard-maker
    ```
 2. 安装依赖：
    ```bash

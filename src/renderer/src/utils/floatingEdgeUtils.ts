@@ -1,4 +1,4 @@
-import { Position, Node, HandleElement } from 'reactflow';
+import { Position, Node } from 'reactflow';
 
 // Get the intersection point between the center of the node and the target position
 function getNodeIntersection(intersectionNode: Node, targetNode: Node) {

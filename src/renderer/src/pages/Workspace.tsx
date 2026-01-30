@@ -4,6 +4,7 @@ import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import GlobalSettingsModal from '../components/GlobalSettingsModal';
+import Logo from '../components/Logo';
 
 const { Sider } = Layout;
 
@@ -44,6 +45,11 @@ export default function Workspace() {
                 collapsed={true} // Always collapsed
                 trigger={null} // Hide default trigger
             >
+                {/* Logo Area */}
+                <div style={{ padding: '20px 0', display: 'flex', justifyContent: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <Logo size={32} showText={false} />
+                </div>
+
                 {/* Back / Home Button */}
                 <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                     <Tooltip title={t('sidebar.projects')}>

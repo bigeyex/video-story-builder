@@ -1,5 +1,5 @@
-appId: com.videostorybuilder.app
-productName: Video Story Builder
+appId: com.storyboardmaker.app
+productName: Storyboard Maker
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: video-story-builder
+  executableName: storyboard-maker
   icon: resources/icon.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}

@@ -62,6 +62,7 @@ export default function CharacterDetails({ project, character, onUpdate, onDelet
             if (!isCancelled) {
                 message.error({ content: t('characters.failed') + e, key: 'design' });
             }
+            return undefined;
         }
     };
 

@@ -29,7 +29,7 @@ async function ensureProjectDir(): Promise<void> {
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    title: 'Video Story Builder',
+    title: 'Storyboard Maker',
     width: 1350,
     height: 1005,
     show: false,
@@ -111,7 +111,7 @@ app.whenReady().then(async () => {
     }
   })
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.storybuilder.app')
+  electronApp.setAppUserModelId('com.storyboardmaker.app')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
