@@ -110,6 +110,9 @@
     "imageModelId": "绘画模型 ID",
     "videoModelId": "视频模型 ID",
     "language": "语言",
+    "projectsPath": "项目存储路径",
+    "projectsPathPlaceholder": "选择项目文件夹",
+    "browse": "浏览",
     "saveSuccess": "设置已保存"
   },
   "projects": {

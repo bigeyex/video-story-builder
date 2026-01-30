@@ -110,6 +110,9 @@
     "imageModelId": "Image Model ID",
     "videoModelId": "Video Model ID",
     "language": "Language",
+    "projectsPath": "Projects Path",
+    "projectsPathPlaceholder": "Select projects folder",
+    "browse": "Browse",
     "saveSuccess": "Settings saved"
   },
   "projects": {

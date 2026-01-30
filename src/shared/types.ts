@@ -60,6 +60,7 @@ export interface GlobalSettings {
   imageModelId: string;
   videoModelId: string;
   language?: string;
+  projectsPath?: string;
 }
 
 export interface Project extends ProjectMetadata {
@@ -91,6 +92,7 @@ export interface API {
   resumeProjectVideoPolling: (projectId: string) => Promise<void>;
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => Promise<string>;
   openProjectsFolder: () => Promise<void>;
+  selectFolder: () => Promise<string | null>;
   uploadImage: (projectId: string, filePath: string) => Promise<string>;
   loadSceneStoryboard: (projectId: string, sceneId: string) => Promise<StoryboardShot[]>;
   generateAIStream: (type: string, params: any) => void;

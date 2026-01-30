@@ -21,6 +21,7 @@ const api = {
   resumeProjectVideoPolling: (projectId: string) => ipcRenderer.invoke('resume-project-video-polling', projectId),
   generateCharacterDesign: (prompt: string, projectId: string, characterId: string) => ipcRenderer.invoke('generate-character-design', prompt, projectId, characterId),
   openProjectsFolder: () => ipcRenderer.invoke('open-projects-folder'),
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
   uploadImage: (projectId: string, filePath: string) => ipcRenderer.invoke('upload-image', projectId, filePath),
   loadSceneStoryboard: (projectId: string, sceneId: string) => ipcRenderer.invoke('load-scene-storyboard', projectId, sceneId),
   generateAIStream: (type: string, params: any) => ipcRenderer.send('generate-ai-stream', type, params),

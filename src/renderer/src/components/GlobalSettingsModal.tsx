@@ -1,9 +1,10 @@
-import { Modal, Form, Input, message, Select } from 'antd';
+import { Modal, Form, Input, message, Select, Button, Space } from 'antd';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SettingsService } from '../services/SettingsService';
 import { GlobalSettings } from '../../../shared/types';
 import { DEFAULT_MODELS, OLD_DEFAULT_MODELS } from '../../../shared/constants';
+import { FolderOpenOutlined } from '@ant-design/icons';
 
 interface InternalProps {
     open: boolean;
@@ -35,7 +36,8 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
                 textModelId: OLD_DEFAULT_MODELS.includes(textModelId) ? DEFAULT_MODELS.text : textModelId,
                 imageModelId: OLD_DEFAULT_MODELS.includes(imageModelId) ? DEFAULT_MODELS.image : imageModelId,
                 videoModelId: OLD_DEFAULT_MODELS.includes(videoModelId) ? DEFAULT_MODELS.video : videoModelId,
-                language: s.language || i18n.language
+                language: s.language || i18n.language,
+                projectsPath: s.projectsPath || ''
             };
             form.setFieldsValue(defaults);
             // Sync i18n with loaded settings if present
@@ -64,6 +66,17 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
         }
     };
 
+    const handleBrowseFolder = async () => {
+        try {
+            const folder = await window.api.selectFolder();
+            if (folder) {
+                form.setFieldValue('projectsPath', folder);
+            }
+        } catch (e) {
+            console.error('Failed to select folder:', e);
+        }
+    };
+
     return (
         <Modal
             title={t('settings.title')}
@@ -86,6 +99,24 @@ export default function GlobalSettingsModal({ open, onClose }: InternalProps) {
                             { label: '中文 (zh-CN)', value: 'zh-CN' }
                         ]}
                     />
+                </Form.Item>
+                <Form.Item
+                    name="projectsPath"
+                    label={t('settings.projectsPath')}
+                    rules={[{ required: true }]}
+                >
+                    <Space.Compact style={{ width: '100%' }}>
+                        <Input
+                            placeholder={t('settings.projectsPathPlaceholder')}
+                            readOnly
+                        />
+                        <Button
+                            icon={<FolderOpenOutlined />}
+                            onClick={handleBrowseFolder}
+                        >
+                            {t('settings.browse')}
+                        </Button>
+                    </Space.Compact>
                 </Form.Item>
                 <Form.Item
                     name="provider"

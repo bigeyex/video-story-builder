@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, protocol } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, protocol, dialog } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -11,7 +11,20 @@ import { DEFAULT_MODELS, OLD_DEFAULT_MODELS } from '../shared/constants'
 
 // Use current working directory or executable path for portable feel
 // In dev, use app.getAppPath() or similar. In prod, use relative to exe.
-const PROJECT_DIR = join(app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath(), 'storyprojects')
+const SETTINGS_FILE = join(app.getPath('userData'), 'settings.json')
+
+async function getProjectDir(): Promise<string> {
+  try {
+    const content = await fs.readFile(SETTINGS_FILE, 'utf-8')
+    const settings = JSON.parse(content)
+    if (settings.projectsPath) {
+      return settings.projectsPath
+    }
+  } catch (e) {
+    // Ignore
+  }
+  return join(app.getPath('home'), 'storyboard-maker')
+}
 
 // Register custom protocol for local assets
 protocol.registerSchemesAsPrivileged([
@@ -19,10 +32,11 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 async function ensureProjectDir(): Promise<void> {
+  const projectDir = await getProjectDir()
   try {
-    await fs.access(PROJECT_DIR)
+    await fs.access(projectDir)
   } catch {
-    await fs.mkdir(PROJECT_DIR, { recursive: true })
+    await fs.mkdir(projectDir, { recursive: true })
   }
 }
 
@@ -65,7 +79,7 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   
-  console.log('Projects directory:', PROJECT_DIR)
+  console.log('Projects directory:', await getProjectDir())
 
   // Handle story-asset protocol
     protocol.handle('story-asset', async (request) => {
@@ -76,18 +90,19 @@ app.whenReady().then(async () => {
     // On Windows, URLs might have encoded backslashes
     const decodedPath = decodeURIComponent(url)
     
-    // If it's already an absolute path and starts with PROJECT_DIR, use it
-    // Otherwise, join with PROJECT_DIR
+    // If it's already an absolute path and starts with projectsPath, use it
+    // Otherwise, join with projectsPath
+    const projectDir = await getProjectDir()
     let absolutePath = decodedPath
     if (!path.isAbsolute(decodedPath)) {
-      absolutePath = join(PROJECT_DIR, decodedPath)
+      absolutePath = join(projectDir, decodedPath)
     } else {
       // Normalize to handle potential /D:/ drive letter issues
       absolutePath = path.normalize(decodedPath)
     }
 
-    if (!absolutePath.toLowerCase().startsWith(PROJECT_DIR.toLowerCase())) {
-      console.error('Forbidden access to:', absolutePath, 'PROJECT_DIR:', PROJECT_DIR)
+    if (!absolutePath.toLowerCase().startsWith(projectDir.toLowerCase())) {
+      console.error('Forbidden access to:', absolutePath, 'projectDir:', projectDir)
       return new Response('Forbidden', { status: 403 })
     }
 
@@ -301,8 +316,9 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     const url = response.data?.[0]?.url || '';
     if (!url || !projectId || !characterId) return url;
 
+    const projectDir = await getProjectDir();
     try {
-      const avatarDir = join(PROJECT_DIR, projectId, 'avatars');
+      const avatarDir = join(projectDir, projectId, 'avatars');
       await fs.mkdir(avatarDir, { recursive: true });
       
       const fileName = `${characterId}_${Date.now()}.png`;
@@ -350,8 +366,9 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     const url = response.data?.[0]?.url || '';
     if (!url || !projectId || !characterId) return url;
 
+    const projectDir = await getProjectDir();
     try {
-      const designDir = join(PROJECT_DIR, projectId, 'designs');
+      const designDir = join(projectDir, projectId, 'designs');
       await fs.mkdir(designDir, { recursive: true });
       
       const fileName = `${characterId}_design_${Date.now()}.png`;
@@ -390,7 +407,8 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
     })
 
     // 1. Load project to check for existing reference IDs (source of truth)
-    const projectPath = join(PROJECT_DIR, projectId, 'project.json');
+    const projectDir = await getProjectDir();
+    const projectPath = join(projectDir, projectId, 'project.json');
     let projectCharacters: any[] = [];
     try {
         const projectContent = await fs.readFile(projectPath, 'utf-8');
@@ -416,7 +434,7 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
             // If no ref ID but we have a design file, upload it
             if (!refId && char.characterDesign) {
                 try {
-                    const fullPath = join(PROJECT_DIR, char.characterDesign);
+                    const fullPath = join(projectDir, char.characterDesign);
                     
                     // We need a File-like object. 'fs.createReadStream' is standard in Node.
                     const { createReadStream } = require('fs');
@@ -511,8 +529,9 @@ ipcMain.on('generate-ai-stream', async (event, type: string, params: any) => {
 
     // 4. Save Image Locally
     try {
+      const projectDir = await getProjectDir();
       // Re-use avatars or 'assets'? Let's use 'avatars' for simplicity or 'shots'
-      const shotsDir = join(PROJECT_DIR, projectId, 'shots');
+      const shotsDir = join(projectDir, projectId, 'shots');
       await fs.mkdir(shotsDir, { recursive: true });
       
       const fileName = `shot_${shotId}_${Date.now()}.png`;
@@ -585,7 +604,8 @@ async function startVideoPolling(params: {
                     
                     if (videoUrl) {
                         try {
-                            const videoDir = join(PROJECT_DIR, projectId, 'videos');
+                            const projectDir = await getProjectDir();
+                            const videoDir = join(projectDir, projectId, 'videos');
                             await fs.mkdir(videoDir, { recursive: true });
                             
                             const fileName = `video_${shotId}_${Date.now()}.mp4`;
@@ -646,8 +666,9 @@ async function startVideoPolling(params: {
     let imageDataUrl = '';
     if (imageUrl) {
         try {
+            const projectDir = await getProjectDir();
             const relativePath = imageUrl.replace('story-asset://', '');
-            const fullPath = join(PROJECT_DIR, relativePath);
+            const fullPath = join(projectDir, relativePath);
             
             const ext = path.extname(fullPath).toLowerCase().replace('.', '') || 'png';
             const format = ext === 'jpg' ? 'jpeg' : ext;
@@ -746,20 +767,21 @@ async function startVideoPolling(params: {
   })
 
   ipcMain.handle('resume-project-video-polling', async (event, projectId: string) => {
+    const projectDir = await getProjectDir()
     const settingsStr = await fs.readFile(SETTINGS_FILE, 'utf-8').catch(() => '{}')
     const settings = JSON.parse(settingsStr)
     const apiKey = settings.volcEngineApiKey;
     if (!apiKey) return;
 
     try {
-        const projectPath = join(PROJECT_DIR, projectId, 'project.json');
+        const projectPath = join(projectDir, projectId, 'project.json');
         const projectContent = await fs.readFile(projectPath, 'utf-8');
         const project = JSON.parse(projectContent);
         
         // Iterate through all chapters and scenes
         for (const chapter of project.chapters) {
             for (const scene of chapter.scenes) {
-                const scenePath = join(PROJECT_DIR, projectId, 'scenes', `${scene.id}.json`);
+                const scenePath = join(projectDir, projectId, 'scenes', `${scene.id}.json`);
                 try {
                     const sceneContent = await fs.readFile(scenePath, 'utf-8');
                     const storyboard = JSON.parse(sceneContent);
@@ -802,12 +824,13 @@ async function startVideoPolling(params: {
         finalImg = img.resize({ width: 1024 })
       }
 
-      const avatarDir = join(PROJECT_DIR, projectId, 'avatars')
+      const projectDir = await getProjectDir()
+      const avatarDir = join(projectDir, projectId, 'avatars')
       await fs.mkdir(avatarDir, { recursive: true })
       
       const fileName = `upload_${Date.now()}.png`
       const relativePath = `${projectId}/avatars/${fileName}`
-      const absolutePath = join(PROJECT_DIR, relativePath)
+      const absolutePath = join(projectDir, relativePath)
       
       await fs.writeFile(absolutePath, finalImg.toPNG())
       return `story-asset://${relativePath}`
@@ -818,7 +841,8 @@ async function startVideoPolling(params: {
   })
 
   ipcMain.handle('load-scene-storyboard', async (_, projectId: string, sceneId: string) => {
-    const filePath = join(PROJECT_DIR, projectId, 'scenes', `${sceneId}.json`)
+    const projectDir = await getProjectDir()
+    const filePath = join(projectDir, projectId, 'scenes', `${sceneId}.json`)
     try {
       const content = await fs.readFile(filePath, 'utf-8')
       return JSON.parse(content)
@@ -834,12 +858,13 @@ async function startVideoPolling(params: {
   // IPC Handlers
   const migrateProjects = async () => {
     await ensureProjectDir()
-    const files = await fs.readdir(PROJECT_DIR)
+    const projectDir = await getProjectDir()
+    const files = await fs.readdir(projectDir)
     for (const file of files) {
       if (file.endsWith('.json') && file !== 'settings.json') {
         const id = file.replace('.json', '')
-        const oldPath = join(PROJECT_DIR, file)
-        const newDir = join(PROJECT_DIR, id)
+        const oldPath = join(projectDir, file)
+        const newDir = join(projectDir, id)
         const newPath = join(newDir, 'project.json')
 
         try {
@@ -857,11 +882,12 @@ async function startVideoPolling(params: {
 
   ipcMain.handle('get-projects', async () => {
     await ensureProjectDir()
-    const entries = await fs.readdir(PROJECT_DIR, { withFileTypes: true })
+    const projectDir = await getProjectDir()
+    const entries = await fs.readdir(projectDir, { withFileTypes: true })
     const projects: any[] = []
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const projectPath = join(PROJECT_DIR, entry.name, 'project.json')
+        const projectPath = join(projectDir, entry.name, 'project.json')
         try {
           const content = await fs.readFile(projectPath, 'utf-8')
           const data = JSON.parse(content)
@@ -883,9 +909,10 @@ async function startVideoPolling(params: {
     await ensureProjectDir()
     const id = randomUUID()
     const timestamp = Date.now()
-    const projectDir = join(PROJECT_DIR, id)
-    await fs.mkdir(projectDir, { recursive: true })
-    await fs.mkdir(join(projectDir, 'scenes'), { recursive: true })
+    const projectDir = await getProjectDir()
+    const projectFolderPath = join(projectDir, id)
+    await fs.mkdir(projectFolderPath, { recursive: true })
+    await fs.mkdir(join(projectFolderPath, 'scenes'), { recursive: true })
 
     const newProject = {
       id,
@@ -911,14 +938,15 @@ async function startVideoPolling(params: {
         }
       ]
     }
-    await fs.writeFile(join(projectDir, 'project.json'), JSON.stringify(newProject, null, 2))
+    await fs.writeFile(join(projectFolderPath, 'project.json'), JSON.stringify(newProject, null, 2))
     return newProject
   })
 
   ipcMain.handle('load-project', async (_, id: string) => {
     await ensureProjectDir()
+    const projectDir = await getProjectDir()
     try {
-      const content = await fs.readFile(join(PROJECT_DIR, id, 'project.json'), 'utf-8')
+      const content = await fs.readFile(join(projectDir, id, 'project.json'), 'utf-8')
       return JSON.parse(content)
     } catch {
       return null
@@ -928,8 +956,9 @@ async function startVideoPolling(params: {
   ipcMain.handle('save-project', async (_, project: any) => {
     await ensureProjectDir()
     const timestamp = Date.now()
-    const projectDir = join(PROJECT_DIR, project.id)
-    const scenesDir = join(projectDir, 'scenes')
+    const projectDir = await getProjectDir()
+    const projectFolderPath = join(projectDir, project.id)
+    const scenesDir = join(projectFolderPath, 'scenes')
     await fs.mkdir(scenesDir, { recursive: true })
 
     // Split storyboards and collect save promises
@@ -950,14 +979,15 @@ async function startVideoPolling(params: {
     await Promise.all(savePromises)
 
     const updatedProject = { ...project, chapters, lastModified: timestamp }
-    await fs.writeFile(join(projectDir, 'project.json'), JSON.stringify(updatedProject, null, 2))
+    await fs.writeFile(join(projectFolderPath, 'project.json'), JSON.stringify(updatedProject, null, 2))
     return true
   })
 
   ipcMain.handle('delete-project', async (_, id: string) => {
     await ensureProjectDir()
+    const projectDir = await getProjectDir()
     try {
-      await fs.rm(join(PROJECT_DIR, id), { recursive: true, force: true })
+      await fs.rm(join(projectDir, id), { recursive: true, force: true })
       return true
     } catch {
       return false
@@ -968,7 +998,15 @@ async function startVideoPolling(params: {
   
   ipcMain.handle('open-projects-folder', async () => {
       await ensureProjectDir()
-      await shell.openPath(PROJECT_DIR)
+      await shell.openPath(await getProjectDir())
+  })
+
+  ipcMain.handle('select-folder', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (result.canceled) return null
+    return result.filePaths[0]
   })
 
   const SETTINGS_FILE = join(app.getPath('userData'), 'settings.json')
@@ -976,9 +1014,17 @@ async function startVideoPolling(params: {
   ipcMain.handle('get-settings', async () => {
     try {
       const content = await fs.readFile(SETTINGS_FILE, 'utf-8')
-      return JSON.parse(content)
+      const settings = JSON.parse(content)
+      if (!settings.projectsPath) {
+        settings.projectsPath = join(app.getPath('home'), 'storyboard-maker')
+      }
+      return settings
     } catch {
-      return { volcEngineApiKey: '', volcEngineModel: '' }
+      return { 
+        volcEngineApiKey: '', 
+        volcEngineModel: '', 
+        projectsPath: join(app.getPath('home'), 'storyboard-maker') 
+      }
     }
   })
 
