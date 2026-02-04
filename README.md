@@ -1,6 +1,7 @@
 # Storyboard Maker
 
 [中文说明 (Chinese Version)](./README_zh.md)
+[Download](https://github.com/bigeyex/storyboard-maker/releases/tag/1.0.0)
 
 Storyboard Maker is a professional desktop application designed to streamline the workflow of creators from initial concept to a complete cinematic storyboard with AI-generated images and videos.
 

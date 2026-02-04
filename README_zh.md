@@ -1,6 +1,7 @@
 # Storyboard Maker
 
 [English Version](./README.md)
+[下载链接](https://github.com/bigeyex/storyboard-maker/releases/tag/1.0.0)
 
 Storyboard Maker 是一款专业的桌面端应用程序，旨在简化创作者从初步构思到完成带有 AI 生成图片和视频的电影级分镜脚本的工作流程。
 
